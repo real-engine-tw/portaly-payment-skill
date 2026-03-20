@@ -7,6 +7,22 @@ description: Help an AI agent quickly assist human users with Portaly Vibe Payme
 
 Use this skill to help a human user finish a Portaly Vibe API integration quickly. Keep answers operational: prefer step lists, API request and response bullets, and copy-ready examples over long architecture explanations.
 
+## Portaly Vibe Payment Environments
+
+### API Host
+
+Use the following API host for Portaly Vibe Payment API calls:
+
+- Production: `https://portaly.cc`
+- Sandbox: `https://portaly-git-feat-3819-portaly-vibe-real-engine.vercel.app`
+
+### Payment site
+
+Payment site URLs to which buyers are redirected for checkout:
+
+- Production: `https://payment.portaly.cc`
+- Sandbox: `https://portaly-vibe.vercel.app`
+
 ## Quick Start
 
 1. Confirm what the human user is trying to build.
@@ -94,7 +110,6 @@ When answering with this skill, prefer this order:
 ## Guardrails
 
 - Prefer the hosted checkout flow whenever possible. It already handles email verification, payment-method persistence, callback dispatch, subscription creation, payment creation, invoice task creation, and order bridge writes.
-- Do not invent provider behavior. TapPay and 91APP differ materially.
 - Do not assume callback delivery means success without checking the `status` and verified signature.
 - Do not derive subscription state from redirect success pages alone. Redirects are UX only; callback or status query is the source of truth.
 - Treat `references/checkout-and-renewal.md` as non-API background material. Load it only if the task explicitly touches recurring billing, payout, invoice follow-up, or bridge-order behavior.
