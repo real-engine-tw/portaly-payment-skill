@@ -30,7 +30,7 @@ Payment site URLs to which buyers are redirected for checkout:
 2. Start with `references/api-contract.md`.
    Use it for endpoint lists, auth, request bodies, response bodies, and callback headers.
 3. Load `references/checkout-and-renewal.md` only when needed.
-   Use it only as supplemental reference when the human user asks about post-checkout charging, renewal, payout, invoice, or bridge-order behavior.
+   Use it only as supplemental reference when the human user asks about the high-level checkout lifecycle or renewal behavior.
 4. Return implementation-ready output.
    Prefer numbered steps, API endpoint lists, request and response bullets, and Node.js or TypeScript examples.
 
@@ -77,8 +77,8 @@ Payment site URLs to which buyers are redirected for checkout:
 
 ### 4. Let Portaly run hosted checkout
 
-- Portaly checkout enforces email verification before payment.
-- Do not ask the third party to collect card tokens directly unless the task is specifically about Portaly's internal checkout implementation.
+- Treat Portaly hosted checkout as a black box from the third-party perspective.
+- Do not ask the third party to collect card tokens or implement Portaly-owned payment steps.
 
 ### 5. Consume the result
 
@@ -109,10 +109,10 @@ When answering with this skill, prefer this order:
 
 ## Guardrails
 
-- Prefer the hosted checkout flow whenever possible. It already handles email verification, payment-method persistence, callback dispatch, subscription creation, payment creation, invoice task creation, and order bridge writes.
+- Prefer the hosted checkout flow whenever possible. It already handles the buyer payment flow, payment completion, callback dispatch, and recurring setup.
 - Do not assume callback delivery means success without checking the `status` and verified signature.
 - Do not derive subscription state from redirect success pages alone. Redirects are UX only; callback or status query is the source of truth.
-- Treat `references/checkout-and-renewal.md` as non-API background material. Load it only if the task explicitly touches recurring billing, payout, invoice follow-up, or bridge-order behavior.
+- Treat `references/checkout-and-renewal.md` as non-API background material. Load it only if the task explicitly touches the hosted checkout lifecycle or recurring billing at a high level.
 
 ## Deliverables
 
@@ -123,14 +123,14 @@ When using this skill, aim to return one or more of:
 - request and response field breakdowns
 - callback verification code in the user's stack
 - sample `curl`, `fetch`, or TypeScript snippets
-- a troubleshooting list keyed by session status and provider
+- a troubleshooting list keyed by session status
 
 ## Resources
 
 - `references/api-contract.md`
   Use for bearer auth, endpoint contract, callback headers, payload fields, and third-party implementation shape.
 - `references/checkout-and-renewal.md`
-  Use only as optional background for post-checkout charging, payment-method storage, subscription/payment/order side effects, and renewal behavior.
+  Use only as optional background for the high-level checkout lifecycle and renewal behavior.
 - `scripts/sign_callback.py`
   Use when you need a deterministic example of Portaly callback signing and verification.
 - `scripts/sign_callback.mjs`
