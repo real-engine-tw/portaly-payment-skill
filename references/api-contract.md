@@ -2,6 +2,9 @@
 
 ## Use This Reference For
 
+- merchant config setup
+- subscription plan setup
+- image upload for merchant logo or plan artwork
 - third-party checkout session creation
 - session query and reconciliation
 - signed callback verification
@@ -16,6 +19,142 @@ Use this when the human user asks how to authenticate third-party requests.
 - Notes:
   - the API key is tied to one `profileId`
   - do not send `profileId` in write requests that derive it from the key
+
+## Merchant Config
+
+Use this when the human user needs to set or update merchant branding for Portaly Vibe Payment.
+
+- Read endpoint:
+  - `GET /api/creator-subscription/config?profileId={profileId}`
+- Setup endpoints:
+  - `PUT /api/creator-subscription/config`
+  - `POST /api/creator-subscription/config/images`
+- Setup headers:
+  - `Authorization: Bearer {portaly_vibe_payment_api_key}`
+
+`PUT /api/creator-subscription/config`
+
+- Request fields:
+  - `merchantLogo`: optional `images/{fileId}` value
+- Request body:
+
+```json
+{
+  "merchantLogo": "images/file_123"
+}
+```
+
+- Response fields:
+  - `data.profileId`
+  - `data.merchantLogo`
+  - `data.updatedAt`
+
+`POST /api/creator-subscription/config/images`
+
+- Content type:
+  - `multipart/form-data`
+- Form fields:
+  - `file`: required image file
+  - `filename`: optional override filename
+- Supported image types:
+  - `image/jpeg`
+  - `image/png`
+  - `image/webp`
+  - `image/gif`
+- Size limit:
+  - 8 MB
+- Response fields:
+  - `data.merchantLogo`
+  - `data.file.id`
+  - `data.file.publicURL`
+  - `data.creatorSubscriptionConfig`
+
+## Subscription Plans
+
+Use this when the human user wants the Agent to create or maintain the product basics that will be listed on Portaly.
+
+- Read endpoints:
+  - `GET /api/creator-subscription/plans?profileId={profileId}`
+  - `GET /api/creator-subscription/plans/{planId}`
+- Setup endpoints:
+  - `POST /api/creator-subscription/plans`
+  - `PUT /api/creator-subscription/plans/{planId}`
+  - `POST /api/creator-subscription/plans/{planId}/images`
+- Setup headers:
+  - `Authorization: Bearer {portaly_vibe_payment_api_key}`
+
+`POST /api/creator-subscription/plans`
+
+- Request fields:
+  - `name`: required
+  - `description`: optional
+  - `amount`: required positive number
+  - `currency`: optional, defaults to `TWD`
+  - `billingPeriod`: required, `monthly` or `yearly`
+  - `status`: optional, `active` or `inactive`
+  - `merchantPlanId`: optional merchant-side product id
+  - `externalInformationUrl`: optional object with `url` and `text`
+- Request body:
+
+```json
+{
+  "name": "Pro Monthly",
+  "description": "Monthly subscription plan",
+  "amount": 299,
+  "currency": "TWD",
+  "billingPeriod": "monthly",
+  "status": "active",
+  "merchantPlanId": "merchant_plan_monthly_001",
+  "externalInformationUrl": {
+    "url": "https://example.com/plan-details",
+    "text": "Learn more"
+  }
+}
+```
+
+- Response fields:
+  - `data.id`
+  - `data.profileId`
+  - `data.name`
+  - `data.amount`
+  - `data.currency`
+  - `data.billingPeriod`
+  - `data.status`
+  - `data.image`
+  - `data.createdAt`
+  - `data.updatedAt`
+
+`PUT /api/creator-subscription/plans/{planId}`
+
+- Request fields:
+  - `profileId`: required and must match the plan owner
+  - `name`: optional
+  - `description`: optional
+  - `amount`: optional positive number
+  - `currency`: optional
+  - `billingPeriod`: optional, `monthly` or `yearly`
+  - `status`: optional, `active` or `inactive`
+  - `merchantPlanId`: optional
+
+`POST /api/creator-subscription/plans/{planId}/images`
+
+- Content type:
+  - `multipart/form-data`
+- Form fields:
+  - `file`: required image file
+  - `filename`: optional override filename
+- Supported image types:
+  - `image/jpeg`
+  - `image/png`
+  - `image/webp`
+  - `image/gif`
+- Size limit:
+  - 8 MB
+- Response fields:
+  - `data.image`
+  - `data.file.id`
+  - `data.file.publicURL`
+  - `data.plan`
 
 ## Session Creation
 
