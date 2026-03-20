@@ -1,29 +1,43 @@
 ---
-name: portaly-creator-subscription-integration
-description: Implement or review Portaly creator subscription integrations for third-party systems. Use when Codex needs to connect an external product to Portaly hosted checkout, create checkout sessions with creator subscription API keys, wire TapPay or 91APP payment initiation, verify Portaly signed callbacks, handle redirect and callback flows, or explain the end-to-end creator subscription payment and renewal pipeline.
+name: portaly-vibe-payment-integration
+description: Help an AI agent quickly assist human users with Portaly Vibe Payment API integrations. Use when Codex needs to guide a human through applying for API keys, preparing subscription plans, creating checkout sessions, handling redirects and callbacks, verifying Portaly signatures, and explaining the request and response shape of the Portaly Vibe Payment APIs in a concise, list-oriented format.
 ---
 
-# Portaly Creator Subscription Integration
+# Portaly Vibe Payment Integration
 
-Build around Portaly's hosted checkout instead of rebuilding payment orchestration. Treat Portaly as the system that owns checkout session state, email verification, first charge finalization, recurring payment method storage, subscription creation, payment records, invoice task creation, and callback dispatch.
+Use this skill to help a human user finish a Portaly Vibe API integration quickly. Keep answers operational: prefer step lists, API request and response bullets, and copy-ready examples over long architecture explanations.
 
 ## Quick Start
 
-1. Confirm the integration target.
-   If the user needs to launch a creator subscription checkout from an external service, start with `references/api-contract.md`.
-   If the user needs to understand provider behavior, order bridge records, or renewal side effects, read `references/checkout-and-renewal.md`.
-2. Identify which part of the flow is owned by the third party.
-   Usually the third party owns plan selection, checkout session creation, success/cancel pages, and callback consumption.
-   Portaly owns the hosted checkout UI and payment persistence.
-3. Produce concrete artifacts.
-   Prefer returning request/response examples, callback verification code, environment checklists, and a short sequence diagram or implementation checklist.
+1. Confirm what the human user is trying to build.
+   Common cases: create checkout sessions, receive payment callbacks, query session status, or explain the full hosted checkout flow.
+2. Start with `references/api-contract.md`.
+   Use it for endpoint lists, auth, request bodies, response bodies, and callback headers.
+3. Load `references/checkout-and-renewal.md` only when needed.
+   Use it only as supplemental reference when the human user asks about post-checkout charging, renewal, payout, invoice, or bridge-order behavior.
+4. Return implementation-ready output.
+   Prefer numbered steps, API endpoint lists, request and response bullets, and Node.js or TypeScript examples.
+
+## Output Style
+
+- Write for an AI agent that is helping a human user complete integration work.
+- Lead with the next concrete steps the human should take.
+- Use lists for:
+  - setup steps
+  - API endpoints
+  - required headers
+  - request fields
+  - response fields
+  - callback verification steps
+- Prefer concise code samples in JavaScript or TypeScript when the user does not ask for another stack.
+- Keep Portaly-owned behavior and third-party-owned behavior clearly separated.
 
 ## Workflow
 
 ### 1. Apply for the API key
 
-- Require a creator subscription API key bound to the target `profileId`.
-- Instruct the human user to apply for or create the creator subscription API key in the Portaly admin at `https://portaly.cc`.
+- Require a Portaly Vibe Payment API key for this integration.
+- Instruct the human user to apply for or create the Portaly Vibe Payment API key in the Portaly admin at `https://portaly.cc`.
 - Be explicit that this step is performed by a human operator in Portaly admin panel, not by the third-party integration code.
 - Tell the human user to store the issued secret material safely, or store it on the user's behalf only in an appropriate secret manager or secure environment store.
 - Tell the integrator to preserve both:
@@ -48,8 +62,6 @@ Build around Portaly's hosted checkout instead of rebuilding payment orchestrati
 ### 4. Let Portaly run hosted checkout
 
 - Portaly checkout enforces email verification before payment.
-- TapPay completes synchronously in the checkout request.
-- 91APP uses `initiate -> redirect -> provider callback -> finalize`.
 - Do not ask the third party to collect card tokens directly unless the task is specifically about Portaly's internal checkout implementation.
 
 ### 5. Consume the result
@@ -66,22 +78,36 @@ Build around Portaly's hosted checkout instead of rebuilding payment orchestrati
 - Reference implementations live in `scripts/sign_callback.py` and `scripts/sign_callback.mjs`.
 - After verification, persist `sessionId`, `merchantOrderNumber`, `paymentReference`, `paymentMethod`, `status`, and the raw callback body for auditing.
 
+## Preferred Response Shape
+
+When answering with this skill, prefer this order:
+
+1. Goal summary
+2. Human setup steps
+3. API list
+4. Request fields
+5. Response fields
+6. Callback handling steps
+7. Example code
+8. Troubleshooting notes
+
 ## Guardrails
 
 - Prefer the hosted checkout flow whenever possible. It already handles email verification, payment-method persistence, callback dispatch, subscription creation, payment creation, invoice task creation, and order bridge writes.
 - Do not invent provider behavior. TapPay and 91APP differ materially.
 - Do not assume callback delivery means success without checking the `status` and verified signature.
 - Do not derive subscription state from redirect success pages alone. Redirects are UX only; callback or status query is the source of truth.
-- If the task includes recurring billing, payout, or invoice follow-up, load `references/checkout-and-renewal.md` before answering.
+- Treat `references/checkout-and-renewal.md` as non-API background material. Load it only if the task explicitly touches recurring billing, payout, invoice follow-up, or bridge-order behavior.
 
 ## Deliverables
 
 When using this skill, aim to return one or more of:
 
-- a minimal integration plan for the external system
-- sample `curl` requests for session creation or session query
+- a minimal step-by-step integration plan for the human user
+- a flat list of relevant APIs
+- request and response field breakdowns
 - callback verification code in the user's stack
-- a redirect/callback sequence diagram
+- sample `curl`, `fetch`, or TypeScript snippets
 - a troubleshooting list keyed by session status and provider
 
 ## Resources
@@ -89,7 +115,7 @@ When using this skill, aim to return one or more of:
 - `references/api-contract.md`
   Use for bearer auth, endpoint contract, callback headers, payload fields, and third-party implementation shape.
 - `references/checkout-and-renewal.md`
-  Use for provider-specific flow, payment-method storage, subscription/payment/order side effects, and renewal behavior.
+  Use only as optional background for post-checkout charging, payment-method storage, subscription/payment/order side effects, and renewal behavior.
 - `scripts/sign_callback.py`
   Use when you need a deterministic example of Portaly callback signing and verification.
 - `scripts/sign_callback.mjs`

@@ -9,23 +9,30 @@
 
 ## Bearer Auth
 
-External systems authenticate with:
+Use this when the human user asks how to authenticate third-party requests.
 
-```http
-Authorization: Bearer {creator_subscription_api_key}
-```
-
-The API key is tied to one `profileId`. Do not send `profileId` in write requests that derive it from the key.
+- Header:
+  - `Authorization: Bearer {portaly_vibe_payment_api_key}`
+- Notes:
+  - the API key is tied to one `profileId`
+  - do not send `profileId` in write requests that derive it from the key
 
 ## Session Creation
 
-Endpoint:
+Use this when the human user needs to send the buyer into Portaly hosted checkout.
 
-```http
-POST /api/creator-subscription/checkout-sessions
-```
-
-Request body:
+- Endpoint:
+  - `POST /api/creator-subscription/checkout-sessions`
+- Required headers:
+  - `Authorization: Bearer {portaly_vibe_payment_api_key}`
+  - `Content-Type: application/json`
+- Request fields:
+  - `planId`: Portaly plan id
+  - `successRedirectUrl`: optional merchant success page
+  - `cancelRedirectUrl`: optional merchant cancel page
+  - `callbackUrl`: optional merchant callback endpoint
+  - `merchantOrderNumber`: optional merchant-side order id
+  - `metadata`: optional string-keyed extra context
 
 ```json
 {
@@ -41,7 +48,12 @@ Request body:
 }
 ```
 
-Response shape:
+- Response fields:
+  - `data.sessionId`: Portaly checkout session id
+  - `data.status`: initial status, usually `checkout_ready`
+  - `data.checkoutUrl`: URL the buyer should visit
+  - `data.checkoutToken`: server-side token for provider routes or manual completion
+  - `data.expiresAt`: session expiry timestamp
 
 ```json
 {
@@ -55,11 +67,10 @@ Response shape:
 }
 ```
 
-Implementation notes:
-
-- `checkoutUrl` is the link the buyer should visit.
-- `checkoutToken` is needed by Portaly-hosted payment routes and manual completion. Persist it on the server side.
-- `callbackSecret` is not passed in the request; Portaly derives it from the authorized API key.
+- Integration notes:
+  - persist `checkoutUrl`, `sessionId`, `checkoutToken`, and `expiresAt`
+  - redirect the buyer to `checkoutUrl`
+  - `callbackSecret` is not passed in the request; Portaly derives it from the authorized API key
 
 Node.js example:
 
@@ -70,7 +81,7 @@ const response = await fetch(
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${process.env.PORTALY_CREATOR_SUBSCRIPTION_API_KEY}`,
+      authorization: `Bearer ${process.env.PORTALY_VIBE_PAYMENT_API_KEY}`,
     },
     body: JSON.stringify({
       planId: "plan_123",
@@ -92,32 +103,42 @@ const { sessionId, checkoutUrl, checkoutToken, expiresAt } = result.data;
 
 ## Session Query
 
-Endpoint:
+Use this when the human user needs reconciliation or a status page.
 
-```http
-GET /api/creator-subscription/checkout-sessions/{sessionId}
-```
-
-Useful returned fields:
-
-- `status`
-- `merchantOrderNumber`
-- `customerEmail`
-- `metadata`
-- `expiresAt`
-- `completedAt`
-
-Use this for merchant status pages, reconciliation jobs, or callback retry fallback.
+- Endpoint:
+  - `GET /api/creator-subscription/checkout-sessions/{sessionId}`
+- Required headers:
+  - `Authorization: Bearer {portaly_vibe_payment_api_key}`
+- Useful response fields:
+  - `status`
+  - `merchantOrderNumber`
+  - `customerEmail`
+  - `metadata`
+  - `expiresAt`
+  - `completedAt`
+- Common uses:
+  - merchant status pages
+  - reconciliation jobs
+  - callback retry fallback
 
 ## Manual Completion
 
-Endpoint:
-
-```http
-POST /api/creator-subscription/checkout-sessions/{sessionId}/complete
-```
-
 Use this only for controlled recovery or non-hosted payment flows.
+
+- Endpoint:
+  - `POST /api/creator-subscription/checkout-sessions/{sessionId}/complete`
+- Required headers:
+  - `Authorization: Bearer {portaly_vibe_payment_api_key}`
+  - `Content-Type: application/json`
+- Request fields:
+  - `checkoutToken`
+  - `customerName`
+  - `customerEmail`
+  - `paymentReference`
+  - `paymentMethod`
+  - `paidAmount`
+  - `status`
+  - `failureReason`: optional when status is `failed`
 
 Request body:
 
@@ -141,11 +162,20 @@ Allowed `status` values:
 
 ## Signed Callback
 
-Headers:
+Use this when the human user needs to verify Portaly callback requests.
 
-- `x-portaly-event`
-- `x-portaly-timestamp`
-- `x-portaly-signature`
+- Headers:
+  - `x-portaly-event`
+  - `x-portaly-timestamp`
+  - `x-portaly-signature`
+- Payload fields to persist:
+  - `sessionId`
+  - `merchantOrderNumber`
+  - `status`
+  - `paymentReference`
+  - `paymentMethod`
+  - `customerEmail`
+  - `completedAt`
 
 Payload example:
 

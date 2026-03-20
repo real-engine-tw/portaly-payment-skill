@@ -1,15 +1,17 @@
 # Checkout And Renewal
 
+This reference is supplemental background. It is not part of the core third-party API contract.
+
 ## Use This Reference For
 
-- explaining provider-specific behavior
+- explaining provider-specific behavior after checkout starts
 - mapping checkout status transitions
 - understanding what Portaly writes after first payment
-- answering recurring charge, invoice, or order-bridge questions
+- answering recurring charge, invoice, payout, or order-bridge questions
 
 ## Hosted Checkout Flow
 
-1. Merchant backend creates a checkout session with a creator subscription API key.
+1. Merchant backend creates a checkout session with a Portaly Vibe Payment API key.
 2. Portaly returns `checkoutUrl`, `sessionId`, `checkoutToken`, and expiry.
 3. Buyer opens `/checkout/subscription/{sessionId}` on Portaly.
 4. Buyer submits email and completes email verification.
@@ -67,7 +69,7 @@ Important conventions:
 
 - `paymentMethodId = checkoutSessionId`
 - `creatorSubscriptionId = checkoutSessionId`
-- the order bridge links creator subscription revenue into the existing `orders` pipeline
+- the order bridge links Portaly Vibe Payment revenue into the existing `orders` pipeline
 
 ## Order Bridge Notes
 
