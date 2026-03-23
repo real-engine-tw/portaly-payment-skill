@@ -50,4 +50,10 @@ git clone https://github.com/real-engine-tw/portaly-payment-skill.git ~/.opencla
 -  我要使用 Portaly Vibe 的支付 API
 -  請協助我整合 Portaly Vibe 的支付功能
 
+## Windows 環境的注意事項
+如果你在 Windows 環境使用此 Skill，請注意 PowerShell 可能會有中文編碼的問題，導致從本機傳輸至 Portaly 的 API 請求出現亂碼。建議在 PowerShell 中執行以下指令來解決此問題：
+
+```powershell
+$OutputEncoding = [System.Text.Encoding]::UTF8
+```
 
