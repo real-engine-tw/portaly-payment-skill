@@ -25,13 +25,22 @@ Payment site URLs to which buyers are redirected for checkout:
 
 ## Quick Start
 
+- Before starting, AI agent should ask the human user to claim or create a Portaly Vibe Payment API key/CallbackSecret in the Portaly admin at `https://portaly.cc/admin/creator-subscription` and store the issued secret material safely.
+
 1. Confirm what the human user is trying to build.
-   Common cases: create config and subscription plans, upload merchant or plan images, create checkout sessions, receive payment callbacks, query session status, or explain the full hosted checkout flow.
-2. Start with `references/api-contract.md`.
+   Prepare for payment integration tasks such as:
+   1. create merchant config
+   2. create subscription plans
+   3. upload merchant or plan images (Agent should ask human user to provide image assets if needed)
+2. After setup, integrate the checkout session creation and callback handling into current system:
+   1. create checkout session before buyer initiates payment
+   2. redirect buyer to Portaly vibe checkout
+   3. verify and consume the callback from Portaly after checkout completion
+3. Start with `references/api-contract.md`.
    Use it for endpoint lists, auth, request bodies, response bodies, and callback headers.
-3. Load `references/checkout-and-renewal.md` only when needed.
+4. Load `references/checkout-and-renewal.md` only when needed.
    Use it only as supplemental reference when the human user asks about post-checkout charging, renewal, payout, invoice, or bridge-order behavior.
-4. Return implementation-ready output.
+5. Return implementation-ready output.
    Prefer numbered steps, API endpoint lists, request and response bullets, and Node.js or TypeScript examples.
 
 ## Output Style
@@ -54,31 +63,36 @@ Payment site URLs to which buyers are redirected for checkout:
 
 ### 1. Apply for the API key
 
-- Require a Portaly Vibe Payment API key for this integration.
-- Instruct the human user to apply for or create the Portaly Vibe Payment API key in the Portaly admin at `https://portaly.cc`.
+- Require a Portaly Vibe Payment API key and CallbackSecret for this integration.
+- Instruct the human user to apply for or create the Portaly Vibe Payment API key in the Portaly admin at `https://portaly.cc/admin/creator-subscription`.
 - Be explicit that this step is performed by a human operator in Portaly admin panel, not by the third-party integration code.
 - Tell the human user to store the issued secret material safely, or store it on the user's behalf only in an appropriate secret manager or secure environment store.
-- Tell the integrator to preserve both:
-  - the full API key for bearer auth
-  - the API key's `callbackSecret` for signature verification
+- Explain that the API key is used for bearer authentication in API calls and the `callbackSecret` is used for verifying the authenticity of callbacks from Portaly If user asking.
 - Do not leave the API key or `callbackSecret` in chat transcripts, source files, client-side code, screenshots, or plaintext docs.
+- Asking the human user to paste the API key to chat and directly saving to `.env` file as possible.
+- Then, Agent should asking for `callbackSecret` and save it to `.env` file as well.
+- create a `.env` file if not exist and save the following content:
+
+```
+PORTALY_API_KEY=sk_test_xxx
+PORTALY_CALLBACK_SECRET=xxx
+```
 
 ### 2. Configure merchant settings
 
-- Agent can perform these setup actions directly by API call with the Portaly Vibe Payment API key.
+- Agent should perform these setup actions directly by API call with the Portaly Vibe Payment API key.
 - Use the Config APIs when the human user needs to set merchant branding before any product goes live.
-- Prefer configuring `merchantLogo` first if the store page or checkout page should show brand identity.
-- If the human user provides an image asset, use the config image upload API and persist the returned `merchantLogo` value such as `images/{fileId}`.
+- AI Agent should ask the human user to provide an `merchantLogo` image asset, use the config image upload API to upload image to Portaly.
 - Explain that `GET /api/creator-subscription/config` is backoffice-only, while `PUT /api/creator-subscription/config` and `POST /api/creator-subscription/config/images` are the setup APIs the Agent can guide the user to call with the Portaly Vibe Payment API key.
 
 ### 3. Create a valid subscription plan
 
-- Agent can perform plan creation, plan updates, and plan image uploads directly by API call with the Portaly Vibe Payment API key.
+- Agent should perform plan creation, plan updates, and plan image uploads directly by API call with the Portaly Vibe Payment API key.
 - Require at least one active plan in Portaly before creating a checkout session.
 - Use the Plan APIs to create or update the product basics that the human user wants to list on Portaly.
 - Confirm the plan name, description, amount, currency, billing period, and status match the intended product.
 - If the third party has its own product catalog, persist the Portaly `planId` together with the merchant's internal product or entitlement identifier.
-- If the human user provides a plan image, use the plan image upload API and persist the returned `image` value such as `images/{fileId}`.
+- AI Agent should ask the human user to provide a plan image, use the plan image upload API to upload the image to Portaly.
 - Treat the `checkoutUrl` returned by Portaly as authoritative. Do not reconstruct it from guessed domains.
 
 ### 4. Create the checkout session
