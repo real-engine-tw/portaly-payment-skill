@@ -1,6 +1,6 @@
 ---
 name: portaly-vibe-payment-integration
-description: Help an AI agent quickly assist human users with Portaly Vibe Payment API integrations. Use when Codex needs to guide a human through applying for API keys, configuring merchant settings, preparing subscription plans, creating checkout sessions, handling redirects and callbacks, verifying Portaly signatures, and explaining the request and response shape of the Portaly Vibe Payment APIs in a concise, list-oriented format.
+description: Help users integrate Portaly Vibe hosted payment checkout, including merchant setup, subscription plans, checkout sessions, and callback verification. Trigger when the user mentions Portaly Vibe payment, creator subscription, or wants to add subscription-based checkout to their application.
 ---
 
 # Portaly Vibe Payment Integration
@@ -14,14 +14,14 @@ Use this skill to help a human user finish a Portaly Vibe API integration quickl
 Use the following API host for Portaly Vibe Payment API calls:
 
 - Production: `https://portaly.cc`
-- Sandbox: `https://portaly-git-feat-3819-portaly-vibe-real-engine.vercel.app`
 
 ### Payment site
 
 Payment site URLs to which buyers are redirected for checkout:
 
 - Production: `https://payment.portaly.cc`
-- Sandbox: `https://portaly-vibe.vercel.app`
+
+> Sandbox environment is planned for a future release.
 
 ## Quick Start
 
@@ -78,19 +78,21 @@ PORTALY_API_KEY=sk_test_xxx
 PORTALY_CALLBACK_SECRET=xxx
 ```
 
+- **Verify that `.gitignore` includes `.env`** before proceeding. If `.gitignore` does not exist or does not include `.env`, create or update it immediately. Never allow credentials to be committed to version control.
+
 ### 2. Configure merchant settings
 
 - Agent should perform these setup actions directly by API call with the Portaly Vibe Payment API key.
 - Use the Config APIs when the human user needs to set merchant branding before any product goes live.
-- AI Agent should ask the human user to provide an `merchantLogo` image asset, use the config image upload API to upload image to Portaly.
-- Explain that `GET /api/creator-subscription/config` is backoffice-only, while `PUT /api/creator-subscription/config` and `POST /api/creator-subscription/config/images` are the setup APIs the Agent can guide the user to call with the Portaly Vibe Payment API key.
+- AI Agent should ask the human user to provide a `merchantLogo` image asset, use the config image upload API to upload image to Portaly. The merchant logo is optional — if the user does not have one ready, skip this step and proceed with plan creation.
+- Use `PUT /api/creator-subscription/config` and `POST /api/creator-subscription/config/images` to set up merchant branding with the Portaly Vibe Payment API key.
 
 ### 3. Create a valid subscription plan
 
 - Agent should perform plan creation, plan updates, and plan image uploads directly by API call with the Portaly Vibe Payment API key.
 - Require at least one active plan in Portaly before creating a checkout session.
 - Use the Plan APIs to create or update the product basics that the human user wants to list on Portaly.
-- Confirm the plan name, description, amount, currency, billing period, and status match the intended product.
+- Confirm the plan name, description, amount, currency, billing period (`monthly`, `yearly`, or `one-time`), and status match the intended product.
 - If the third party has its own product catalog, persist the Portaly `planId` together with the merchant's internal product or entitlement identifier.
 - AI Agent should ask the human user to provide a plan image, use the plan image upload API to upload the image to Portaly.
 - Treat the `checkoutUrl` returned by Portaly as authoritative. Do not reconstruct it from guessed domains.
@@ -111,16 +113,20 @@ PORTALY_CALLBACK_SECRET=xxx
 ### 6. Consume the result
 
 - The primary external confirmation is the signed callback to `callbackUrl`.
-- Optionally poll `GET /api/creator-subscription/checkout-sessions/{sessionId}` for status pages or reconciliation.
+- **Callback is only dispatched when checkout status is `completed`.** Non-completed outcomes (failed, canceled, expired) do not trigger a callback.
+- For non-completed outcomes, poll `GET /api/creator-subscription/checkout-sessions/{sessionId}` as a fallback.
 - Use manual `POST /api/creator-subscription/checkout-sessions/{sessionId}/complete` only as an exception flow when the user is building a non-hosted or recovery flow.
 
 ### 7. Verify and persist
 
 - Verify `x-portaly-signature` with the API key's `callbackSecret`.
 - Use the exact timestamp from `x-portaly-timestamp`.
+- **Reject callbacks where `x-portaly-timestamp` is older than 5 minutes** to prevent replay attacks. Note: `x-portaly-timestamp` is an ISO datetime string, not Unix seconds.
 - Serialize the callback payload with stable key ordering before HMAC.
 - Reference implementations live in `scripts/sign_callback.py` and `scripts/sign_callback.mjs`.
 - After verification, persist `sessionId`, `merchantOrderNumber`, `paymentReference`, `paymentMethod`, `status`, and the raw callback body for auditing.
+- **Use `sessionId` as an idempotency key** — if a callback with the same `sessionId` has already been processed, skip duplicate handling to avoid double fulfillment.
+- **`callbackUrl` must use HTTPS.** Serving over plain HTTP exposes the `callbackSecret` signature and payload in transit.
 
 ## Preferred Response Shape
 
