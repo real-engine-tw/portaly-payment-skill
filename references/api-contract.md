@@ -90,7 +90,7 @@ Use this when the human user wants the Agent to create or maintain the product b
   - `description`: optional
   - `amount`: required positive number
   - `currency`: optional, defaults to `TWD`
-  - `billingPeriod`: required, `monthly` or `yearly`
+  - `billingPeriod`: required, `monthly` or `yearly`, `one-time` is a single-payment plan that does not auto-renew
   - `status`: optional, `active` or `inactive`
   - `merchantPlanId`: optional merchant-side product id
   - `externalInformationUrl`: optional object with `url` and `text`
@@ -132,7 +132,7 @@ Use this when the human user wants the Agent to create or maintain the product b
   - `description`: optional
   - `amount`: optional positive number
   - `currency`: optional
-  - `billingPeriod`: optional, `monthly` or `yearly`
+  - `billingPeriod`: optional, `monthly` or `yearly`, `one-time` is a single-payment plan that does not auto-renew
   - `status`: optional, `active` or `inactive`
   - `merchantPlanId`: optional
 
