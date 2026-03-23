@@ -89,13 +89,14 @@ Use this when the human user wants the Agent to create or maintain the product b
 - Request fields:
   - `name`: required
   - `description`: optional
-  - `amount`: required positive number
+  - `amount`: required positive number for fixed pricing; omit or set to `0` for dynamic pricing
   - `currency`: optional, defaults to `TWD`
   - `billingPeriod`: required, `monthly` or `yearly`, `one-time` is a single-payment plan that does not auto-renew
+  - `pricingType`: optional, `fixed` (default) or `dynamic`. Dynamic pricing plans must use `one-time` billing period; the actual amount is set per checkout session
   - `status`: optional, `active` or `inactive`
   - `merchantPlanId`: optional merchant-side product id
   - `externalInformationUrl`: optional object with `url` and `text`
-- Request body:
+- Request body (fixed pricing):
 
 ```json
 {
@@ -113,6 +114,19 @@ Use this when the human user wants the Agent to create or maintain the product b
 }
 ```
 
+- Request body (dynamic pricing):
+
+```json
+{
+  "name": "Custom Payment",
+  "description": "Pay any amount",
+  "pricingType": "dynamic",
+  "billingPeriod": "one-time",
+  "status": "active",
+  "merchantPlanId": "merchant_plan_dynamic_001"
+}
+```
+
 - Response fields:
   - `data.id`
   - `data.profileId`
@@ -120,6 +134,7 @@ Use this when the human user wants the Agent to create or maintain the product b
   - `data.amount`
   - `data.currency`
   - `data.billingPeriod`
+  - `data.pricingType`
   - `data.status`
   - `data.image`
   - `data.createdAt`
@@ -131,9 +146,10 @@ Use this when the human user wants the Agent to create or maintain the product b
   - `profileId`: required and must match the plan owner
   - `name`: optional
   - `description`: optional
-  - `amount`: optional positive number
+  - `amount`: optional positive number (must be non-negative for dynamic pricing plans)
   - `currency`: optional
   - `billingPeriod`: optional, `monthly` or `yearly`, `one-time` is a single-payment plan that does not auto-renew
+  - `pricingType`: optional, `fixed` or `dynamic`
   - `status`: optional, `active` or `inactive`
   - `merchantPlanId`: optional
 
@@ -168,11 +184,14 @@ Use this when the human user needs to send the buyer into Portaly hosted checkou
   - `Content-Type: application/json`
 - Request fields:
   - `planId`: Portaly plan id
+  - `amount`: optional positive number. **Required** for dynamic pricing plans; ignored for fixed pricing plans
   - `successRedirectUrl`: optional merchant success page
   - `cancelRedirectUrl`: optional merchant cancel page
   - `callbackUrl`: optional merchant callback endpoint
   - `merchantOrderNumber`: optional merchant-side order id
   - `metadata`: optional string-keyed extra context
+
+Request body (fixed pricing plan):
 
 ```json
 {
@@ -184,6 +203,22 @@ Use this when the human user needs to send the buyer into Portaly hosted checkou
   "metadata": {
     "source": "web",
     "cartId": "cart_123"
+  }
+}
+```
+
+Request body (dynamic pricing plan):
+
+```json
+{
+  "planId": "plan_dynamic_456",
+  "amount": 500,
+  "successRedirectUrl": "https://merchant.example/success",
+  "cancelRedirectUrl": "https://merchant.example/cancel",
+  "callbackUrl": "https://merchant.example/api/portaly/callback",
+  "merchantOrderNumber": "order_002",
+  "metadata": {
+    "source": "web"
   }
 }
 ```
@@ -213,6 +248,7 @@ Use this when the human user needs to send the buyer into Portaly hosted checkou
   - `callbackSecret` is not passed in the request; Portaly derives it from the authorized API key
   - current implementation contract: `subscriptionId === checkoutSessionId === sessionId`
   - for recurring subscriptions, persist `sessionId` as the subscription identifier used by cancel or resume APIs
+  - for dynamic pricing plans, include `amount` in the request body; omitting it returns a 400 error
 
 Node.js example:
 

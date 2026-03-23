@@ -93,7 +93,8 @@ PORTALY_CALLBACK_SECRET=xxx
 - Agent should perform plan creation, plan updates, and plan image uploads directly by API call with the Portaly Vibe Payment API key.
 - Require at least one active plan in Portaly before creating a checkout session.
 - Use the Plan APIs to create or update the product basics that the human user wants to list on Portaly.
-- Confirm the plan name, description, amount, currency, billing period (`monthly`, `yearly`, or `one-time`), and status match the intended product.
+- Confirm the plan name, description, amount, currency, billing period (`monthly`, `yearly`, or `one-time`), pricing type (`fixed` or `dynamic`), and status match the intended product.
+- For dynamic pricing plans: set `pricingType` to `dynamic` and `billingPeriod` to `one-time`. The amount is not set on the plan; instead, the caller passes `amount` when creating each checkout session.
 - If the third party has its own product catalog, persist the Portaly `planId` together with the merchant's internal product or entitlement identifier.
 - AI Agent should ask the human user to provide a plan image, use the plan image upload API to upload the image to Portaly.
 - Treat the `checkoutUrl` returned by Portaly as authoritative. Do not reconstruct it from guessed domains.

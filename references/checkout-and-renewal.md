@@ -46,6 +46,7 @@ In the hosted flow, Portaly handles:
 - Later renewals are charged by Portaly without requiring the buyer to repeat the full checkout flow.
 - On renewal, Portaly updates its own subscription and payment records internally.
 - If the merchant needs to reflect renewal results, use Portaly callbacks and/or session or payment reconciliation flows defined by the integration.
+- **Dynamic pricing plans** (`pricingType: 'dynamic'`) are always `one-time` and do not auto-renew. Each payment requires a new checkout session with an explicit `amount`.
 
 ## Cancel And Resume Behavior
 
