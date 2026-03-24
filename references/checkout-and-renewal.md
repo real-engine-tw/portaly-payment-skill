@@ -59,6 +59,14 @@ In the hosted flow, Portaly handles:
   - `POST /api/creator-subscription/subscriptions/{subscriptionId}/cancel`
   - `POST /api/creator-subscription/subscriptions/{subscriptionId}/resume`
 
+## Test Mode (Sandbox)
+
+- Each API key is created with a fixed mode: `live` or `test`
+- Test mode (`pcs_test_` keys) uses TapPay sandbox and stores orders in a separate `sandboxOrders` collection
+- Checkout sessions, subscriptions, and callbacks created with a test key carry `mode: "test"`
+- Merchants should use test keys during integration development and switch to live keys for production
+- The test mode flow is identical to live — same endpoints, same hosted checkout, same callback verification — only the payment provider and order storage differ
+
 ## Recommended Third-Party Responsibility
 
 - create the checkout session
