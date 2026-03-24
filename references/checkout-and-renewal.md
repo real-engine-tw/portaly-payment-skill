@@ -7,6 +7,7 @@ This reference is supplemental background for third-party integrators. It explai
 - understanding the overall checkout flow
 - explaining what happens after the buyer pays
 - clarifying how renewal works
+- clarifying how recurring subscriptions are canceled or resumed
 
 ## Checkout Flow
 
@@ -16,6 +17,11 @@ This reference is supplemental background for third-party integrators. It explai
 4. The buyer completes Portaly hosted checkout.
 5. After payment is finalized, Portaly sends the signed callback if `callbackUrl` was provided.
 6. The merchant verifies the callback signature and updates its own order or subscription state.
+
+Current identifier contract:
+
+- `subscriptionId === checkoutSessionId === sessionId`
+- after a recurring checkout succeeds, the merchant can persist `sessionId` as the recurring subscription identifier
 
 ## Important Integration Rules
 
@@ -41,12 +47,23 @@ In the hosted flow, Portaly handles:
 - On renewal, Portaly updates its own subscription and payment records internally.
 - If the merchant needs to reflect renewal results, use Portaly callbacks and/or session or payment reconciliation flows defined by the integration.
 
+## Cancel And Resume Behavior
+
+- canceling a recurring subscription means stopping the next recurring charge
+- canceling is not a refund flow
+- the current paid period remains active until the subscription reaches `cancelEffectiveAt`
+- resuming a subscription clears the pending end-of-period cancellation before the subscription becomes fully `canceled`
+- `one-time` plans do not support cancel or resume
+- merchant systems should call:
+  - `POST /api/creator-subscription/subscriptions/{subscriptionId}/cancel`
+  - `POST /api/creator-subscription/subscriptions/{subscriptionId}/resume`
+
 ## Recommended Third-Party Responsibility
 
 - create the checkout session
 - redirect the buyer to Portaly hosted checkout
 - verify the signed callback
-- persist `sessionId`, merchant order reference, payment status, and callback payload
+- persist `sessionId`, `subscriptionId` if present, merchant order reference, payment status, and callback payload
 - use reconciliation queries when callback delivery or buyer state is uncertain
 
 ## Scope Note

@@ -7,6 +7,7 @@
 - image upload for merchant logo or plan artwork
 - third-party checkout session creation
 - session query and reconciliation
+- recurring subscription query, cancel, and resume
 - signed callback verification
 - fallback manual completion flows
 
@@ -210,6 +211,8 @@ Use this when the human user needs to send the buyer into Portaly hosted checkou
   - persist `checkoutUrl`, `sessionId`, `checkoutToken`, and `expiresAt`
   - redirect the buyer to `checkoutUrl`
   - `callbackSecret` is not passed in the request; Portaly derives it from the authorized API key
+  - current implementation contract: `subscriptionId === checkoutSessionId === sessionId`
+  - for recurring subscriptions, persist `sessionId` as the subscription identifier used by cancel or resume APIs
 
 Node.js example:
 
@@ -260,6 +263,87 @@ Use this when the human user needs reconciliation or a status page.
   - reconciliation jobs
   - callback retry fallback
 
+## Subscription Query And Lifecycle
+
+Use this when the human user needs to look up a recurring subscription or stop or resume future renewals.
+
+- Endpoints:
+  - `GET /api/creator-subscription/subscriptions/{subscriptionId}`
+  - `POST /api/creator-subscription/subscriptions/{subscriptionId}/cancel`
+  - `POST /api/creator-subscription/subscriptions/{subscriptionId}/resume`
+- Required headers:
+  - `Authorization: Bearer {portaly_vibe_payment_api_key}`
+
+Current identifier contract:
+
+- `subscriptionId === checkoutSessionId === sessionId`
+- If the merchant only has the checkout completed callback payload, it may use `sessionId` directly as `subscriptionId`
+
+`GET /api/creator-subscription/subscriptions/{subscriptionId}`
+
+- Useful response fields:
+  - `id`
+  - `profileId`
+  - `planId`
+  - `billingPeriod`
+  - `status`
+  - `cancelAtPeriodEnd`
+  - `nextBillingAt`
+  - `cancelRequestedAt`
+  - `cancelEffectiveAt`
+  - `canceledAt`
+
+`POST /api/creator-subscription/subscriptions/{subscriptionId}/cancel`
+
+- Supported only for recurring subscriptions:
+  - `billingPeriod = monthly`
+  - `billingPeriod = yearly`
+- Behavior:
+  - stops the next recurring charge
+  - does not issue a refund
+  - keeps the current paid period active until `cancelEffectiveAt`
+- Request fields:
+  - `reason`: optional, one of `customer_requested | payment_failures | manual | other`
+  - `reasonNote`: optional string
+
+```json
+{
+  "reason": "customer_requested",
+  "reasonNote": "Customer asked to stop renewal"
+}
+```
+
+- Useful response fields:
+  - `id`
+  - `status`
+  - `cancelAtPeriodEnd`
+  - `cancelRequestedAt`
+  - `cancelEffectiveAt`
+  - `nextBillingAt`
+
+`POST /api/creator-subscription/subscriptions/{subscriptionId}/resume`
+
+- Supported only when the recurring subscription is pending end-of-period cancellation
+- Behavior:
+  - clears the pending cancellation
+  - allows future recurring renewal to continue
+
+```json
+{}
+```
+
+- Useful response fields:
+  - `id`
+  - `status`
+  - `cancelAtPeriodEnd`
+  - `nextBillingAt`
+
+Common validation notes:
+
+- `one-time` plans do not support cancel or resume
+- a fully `canceled` subscription cannot be resumed
+- these lifecycle APIs are merchant-system APIs and do not use Firebase auth
+
 ## Manual Completion
 
 Use this only for controlled recovery or non-hosted payment flows.
@@ -309,6 +393,7 @@ Use this when the human user needs to verify Portaly callback requests.
   - `x-portaly-signature`
 - Payload fields to persist:
   - `sessionId`
+  - `subscriptionId` if present
   - `merchantOrderNumber`
   - `status`
   - `paymentReference`
@@ -322,6 +407,7 @@ Payload example:
 {
   "event": "creator_subscription.checkout.completed",
   "sessionId": "session_123",
+  "subscriptionId": "session_123",
   "profileId": "profile_123",
   "planId": "plan_123",
   "status": "completed",
@@ -350,6 +436,12 @@ Verification rule:
 - algorithm: `HMAC-SHA256`
 - secret: the API key's `callbackSecret`
 
+Callback notes:
+
+- current implementation contract: `subscriptionId === sessionId`
+- if the callback payload consumed by the merchant side does not explicitly expose `subscriptionId`, the merchant may safely persist `sessionId` as the recurring subscription identifier
+- use `sessionId` as the idempotency key for callback processing
+
 Use `scripts/sign_callback.mjs` for Node.js/TypeScript-oriented work and `scripts/sign_callback.py` for a language-agnostic reference.
 
 Express-style callback example:
@@ -376,10 +468,22 @@ app.post("/api/portaly/callback", (req, res) => {
     return res.status(401).json({ error: "invalid signature" });
   }
 
-  const { sessionId, merchantOrderNumber, status, paymentReference } = req.body;
+  const {
+    sessionId,
+    subscriptionId = sessionId,
+    merchantOrderNumber,
+    status,
+    paymentReference,
+  } = req.body;
 
   // Persist the verified callback and reconcile your local order state here.
-  console.log({ sessionId, merchantOrderNumber, status, paymentReference });
+  console.log({
+    sessionId,
+    subscriptionId,
+    merchantOrderNumber,
+    status,
+    paymentReference,
+  });
 
   return res.status(200).json({ ok: true });
 });

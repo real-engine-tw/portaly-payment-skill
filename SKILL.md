@@ -36,6 +36,7 @@ Payment site URLs to which buyers are redirected for checkout:
    1. create checkout session before buyer initiates payment
    2. redirect buyer to Portaly vibe checkout
    3. verify and consume the callback from Portaly after checkout completion
+   4. if the integration needs subscription lifecycle management, also wire cancel and resume APIs for recurring plans
 3. Start with `references/api-contract.md`.
    Use it for endpoint lists, auth, request bodies, response bodies, and callback headers.
 4. Load `references/checkout-and-renewal.md` only when needed.
@@ -116,6 +117,9 @@ PORTALY_CALLBACK_SECRET=xxx
 - **Callback is only dispatched when checkout status is `completed`.** Non-completed outcomes (failed, canceled, expired) do not trigger a callback.
 - For non-completed outcomes, poll `GET /api/creator-subscription/checkout-sessions/{sessionId}` as a fallback.
 - Use manual `POST /api/creator-subscription/checkout-sessions/{sessionId}/complete` only as an exception flow when the user is building a non-hosted or recovery flow.
+- **Current implementation contract:** `subscriptionId === checkoutSessionId === sessionId`.
+- When a recurring checkout succeeds, human user's system may use the callback's `sessionId` directly as the `subscriptionId` for later cancel or resume API calls.
+- Make it explicit to the human user that this is the current Portaly implementation contract and should be persisted on their side after checkout completion.
 
 ### 7. Verify and persist
 
@@ -124,9 +128,56 @@ PORTALY_CALLBACK_SECRET=xxx
 - **Reject callbacks where `x-portaly-timestamp` is older than 5 minutes** to prevent replay attacks. Note: `x-portaly-timestamp` is an ISO datetime string, not Unix seconds.
 - Serialize the callback payload with stable key ordering before HMAC.
 - Reference implementations live in `scripts/sign_callback.py` and `scripts/sign_callback.mjs`.
-- After verification, persist `sessionId`, `merchantOrderNumber`, `paymentReference`, `paymentMethod`, `status`, and the raw callback body for auditing.
+- After verification, persist `sessionId`, `subscriptionId` if present, `merchantOrderNumber`, `paymentReference`, `paymentMethod`, `status`, and the raw callback body for auditing.
+- If the callback payload does not include `subscriptionId`, persist `sessionId` as the recurring subscription identifier because the current implementation uses `sessionId` as `subscriptionId`.
 - **Use `sessionId` as an idempotency key** — if a callback with the same `sessionId` has already been processed, skip duplicate handling to avoid double fulfillment.
 - **`callbackUrl` must use HTTPS.** Serving over plain HTTP exposes the `callbackSecret` signature and payload in transit.
+
+### 8. Manage recurring subscriptions
+
+- Only recurring plans with `billingPeriod = monthly | yearly` support cancel or resume.
+- Cancellation means stopping the next recurring charge. It is not a refund.
+- Portaly currently supports merchant-system initiated subscription lifecycle actions through API key authenticated endpoints.
+- Use the same Portaly Vibe Payment API key for these calls.
+
+Recurring management APIs:
+
+- `GET /api/creator-subscription/subscriptions/{subscriptionId}`
+- `POST /api/creator-subscription/subscriptions/{subscriptionId}/cancel`
+- `POST /api/creator-subscription/subscriptions/{subscriptionId}/resume`
+
+Recurring management rules:
+
+- These APIs only accept `Authorization: Bearer {api_key}`
+- Do not use Firebase auth for merchant-system integrations
+- `billingPeriod = one-time` does not support cancel or resume
+- `cancel` marks the subscription as `cancelAtPeriodEnd = true`
+- `resume` only works before the subscription has become fully `canceled`
+
+Cancel request body:
+
+```json
+{
+  "reason": "customer_requested",
+  "reasonNote": "optional note"
+}
+```
+
+Resume request body:
+
+```json
+{}
+```
+
+What to persist for recurring lifecycle:
+
+- `subscriptionId`
+- `sessionId`
+- `planId`
+- `billingPeriod`
+- `status`
+- `cancelAtPeriodEnd`
+- `cancelEffectiveAt`
 
 ## Preferred Response Shape
 
