@@ -9,23 +9,38 @@ Use this skill to help a human user finish a Portaly Vibe API integration quickl
 
 ## Portaly Vibe Payment Environments
 
+Portaly Vibe Payment supports two modes per API key: **live** and **test**.
+
 ### API Host
 
-Use the following API host for Portaly Vibe Payment API calls:
+Use the following API host for both modes:
 
-- Production: `https://portaly.cc`
+- `https://portaly.cc`
 
 ### Payment site
 
 Payment site URLs to which buyers are redirected for checkout:
 
-- Production: `https://payment.portaly.cc`
+- `https://payment.portaly.cc`
 
-> Sandbox environment is planned for a future release.
+### Mode behavior
+
+| Aspect | Live mode | Test mode |
+|---|---|---|
+| API key prefix | `pcs_live_` | `pcs_test_` |
+| Payment provider | TapPay production | TapPay sandbox |
+| Order storage | `orders` collection | `sandboxOrders` collection |
+| Callback payload | `mode: "live"` or absent | `mode: "test"` |
+
+- Mode is set at API key creation time and cannot be changed after creation.
+- A single merchant (`profileId`) can have both a live key and a test key active at the same time.
+- All API endpoints accept both live and test keys. The mode is derived from the key, not from a request parameter.
+- Test mode is intended for integration testing. Real charges are not made in test mode when using TapPay sandbox credentials.
 
 ## Quick Start
 
 - Before starting, AI agent should ask the human user to claim or create a Portaly Vibe Payment API key/CallbackSecret in the Portaly admin at `https://portaly.cc/admin/creator-subscription` and store the issued secret material safely.
+- Ask the human user whether they want a **live** or **test** key. Recommend starting with a test key for integration development.
 
 1. Confirm what the human user is trying to build.
    Prepare for payment integration tasks such as:
@@ -66,6 +81,7 @@ Payment site URLs to which buyers are redirected for checkout:
 
 - Require a Portaly Vibe Payment API key and CallbackSecret for this integration.
 - Instruct the human user to apply for or create the Portaly Vibe Payment API key in the Portaly admin at `https://portaly.cc/admin/creator-subscription`.
+- Ask whether the user wants a **live** key (`pcs_live_…`) or a **test** key (`pcs_test_…`). Recommend starting with a test key for development and switching to live for production.
 - Be explicit that this step is performed by a human operator in Portaly admin panel, not by the third-party integration code.
 - Tell the human user to store the issued secret material safely, or store it on the user's behalf only in an appropriate secret manager or secure environment store.
 - Explain that the API key is used for bearer authentication in API calls and the `callbackSecret` is used for verifying the authenticity of callbacks from Portaly If user asking.
@@ -75,10 +91,11 @@ Payment site URLs to which buyers are redirected for checkout:
 - create a `.env` file if not exist and save the following content:
 
 ```
-PORTALY_API_KEY=sk_test_xxx
+PORTALY_API_KEY=pcs_live_xxx
 PORTALY_CALLBACK_SECRET=xxx
 ```
 
+- If the user chose a **test** key, the API key will start with `pcs_test_` instead. The `.env` format is the same; only the key value differs.
 - **Verify that `.gitignore` includes `.env`** before proceeding. If `.gitignore` does not exist or does not include `.env`, create or update it immediately. Never allow credentials to be committed to version control.
 
 ### 2. Configure merchant settings

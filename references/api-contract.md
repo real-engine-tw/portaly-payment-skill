@@ -19,7 +19,38 @@ Use this when the human user asks how to authenticate third-party requests.
   - `Authorization: Bearer {portaly_vibe_payment_api_key}`
 - Notes:
   - the API key is tied to one `profileId`
+  - each key has a fixed `mode`: `live` or `test`
+  - live keys start with `pcs_live_`, test keys start with `pcs_test_`
+  - mode is derived from the key; it is not passed per-request
   - do not send `profileId` in write requests that derive it from the key
+
+## API Key Creation
+
+Use this when the human user is creating a new API key from the Portaly admin panel.
+
+- Endpoint:
+  - `POST /api/creator-subscription/api-keys`
+- Required auth:
+  - Firebase auth (Portaly admin panel only — not a third-party API)
+- Request fields:
+  - `profileId`: required
+  - `mode`: optional, `live` (default) or `test`
+- Response fields:
+  - `data.apiKey.id`
+  - `data.apiKey.profileId`
+  - `data.apiKey.status`
+  - `data.apiKey.mode`
+  - `data.apiKey.keyPrefix`
+  - `data.apiKey.callbackSecret` (masked)
+  - `data.secret` (full API key — shown only once at creation)
+
+Mode behavior:
+
+- `live` keys use prefix `pcs_live_` and connect to production payment providers
+- `test` keys use prefix `pcs_test_` and connect to sandbox payment providers (e.g., TapPay sandbox)
+- Test mode orders are stored in a separate `sandboxOrders` collection
+- A single `profileId` can have both a live and a test key active simultaneously
+- Mode is fixed at creation time and cannot be changed
 
 ## Merchant Config
 
@@ -246,6 +277,7 @@ Request body (dynamic pricing plan):
   - persist `checkoutUrl`, `sessionId`, `checkoutToken`, and `expiresAt`
   - redirect the buyer to `checkoutUrl`
   - `callbackSecret` is not passed in the request; Portaly derives it from the authorized API key
+  - the session inherits `mode` from the API key used to create it (`live` or `test`)
   - current implementation contract: `subscriptionId === checkoutSessionId === sessionId`
   - for recurring subscriptions, persist `sessionId` as the subscription identifier used by cancel or resume APIs
   - for dynamic pricing plans, include `amount` in the request body; omitting it returns a 400 error
@@ -321,6 +353,7 @@ Current identifier contract:
   - `id`
   - `profileId`
   - `planId`
+  - `mode` (`live` or `test`)
   - `billingPeriod`
   - `status`
   - `cancelAtPeriodEnd`
@@ -430,6 +463,7 @@ Use this when the human user needs to verify Portaly callback requests.
 - Payload fields to persist:
   - `sessionId`
   - `subscriptionId` if present
+  - `mode` (`live` or `test`)
   - `merchantOrderNumber`
   - `status`
   - `paymentReference`
@@ -446,6 +480,7 @@ Payload example:
   "subscriptionId": "session_123",
   "profileId": "profile_123",
   "planId": "plan_123",
+  "mode": "live",
   "status": "completed",
   "merchantOrderNumber": "order_001",
   "amount": 299,
@@ -477,6 +512,7 @@ Callback notes:
 - current implementation contract: `subscriptionId === sessionId`
 - if the callback payload consumed by the merchant side does not explicitly expose `subscriptionId`, the merchant may safely persist `sessionId` as the recurring subscription identifier
 - use `sessionId` as the idempotency key for callback processing
+- the `mode` field indicates whether this callback originated from a live or test checkout; merchants should use it to route test callbacks to sandbox order handling
 
 Use `scripts/sign_callback.mjs` for Node.js/TypeScript-oriented work and `scripts/sign_callback.py` for a language-agnostic reference.
 
