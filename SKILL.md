@@ -36,6 +36,7 @@ Payment site URLs to which buyers are redirected for checkout:
 - A single merchant (`profileId`) can have both a live key and a test key active at the same time.
 - All API endpoints accept both live and test keys. The mode is derived from the key, not from a request parameter.
 - Test mode is intended for integration testing. Real charges are not made in test mode when using TapPay sandbox credentials.
+- **Plans and merchant config are shared across modes.** They belong to the `profileId`, not to the API key mode. A plan created with a live key is visible and usable with a test key, and vice versa. Do **not** create duplicate plans when switching between live and test keys — query existing plans first with `GET /api/creator-subscription/plans?profileId={profileId}` and reuse them.
 
 ## Quick Start
 
@@ -108,6 +109,7 @@ PORTALY_CALLBACK_SECRET=xxx
 ### 3. Create a valid subscription plan
 
 - Agent should perform plan creation, plan updates, and plan image uploads directly by API call with the Portaly Vibe Payment API key.
+- **Before creating a new plan, always query existing plans** with `GET /api/creator-subscription/plans?profileId={profileId}` using the current API key. Plans are shared across live and test modes — if a suitable plan already exists, reuse it instead of creating a duplicate.
 - Require at least one active plan in Portaly before creating a checkout session.
 - Use the Plan APIs to create or update the product basics that the human user wants to list on Portaly.
 - Confirm the plan name, description, amount, currency, billing period (`monthly`, `yearly`, or `one-time`), pricing type (`fixed` or `dynamic`), and status match the intended product.

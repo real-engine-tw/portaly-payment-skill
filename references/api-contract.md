@@ -105,6 +105,7 @@ Use this when the human user needs to set or update merchant branding for Portal
 
 Use this when the human user wants the Agent to create or maintain the product basics that will be listed on Portaly.
 
+- **Plans belong to the `profileId` and are shared across live and test modes.** Always query existing plans before creating a new one to avoid duplicates.
 - Read endpoints:
   - `GET /api/creator-subscription/plans?profileId={profileId}`
   - `GET /api/creator-subscription/plans/{planId}`
