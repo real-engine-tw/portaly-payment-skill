@@ -171,6 +171,7 @@ Use this when the human user wants the Agent to create or maintain the product b
   - `data.image`
   - `data.createdAt`
   - `data.updatedAt`
+- **Encoding note:** On Windows, if `data.name` or `data.description` contains garbled text, fix the shell encoding and use `PUT /api/creator-subscription/plans/{planId}` to correct it.
 
 `PUT /api/creator-subscription/plans/{planId}`
 

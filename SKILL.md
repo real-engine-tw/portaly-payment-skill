@@ -117,6 +117,7 @@ PORTALY_CALLBACK_SECRET=xxx
 - If the third party has its own product catalog, persist the Portaly `planId` together with the merchant's internal product or entitlement identifier.
 - AI Agent should ask the human user to provide a plan image, use the plan image upload API to upload the image to Portaly.
 - Treat the `checkoutUrl` returned by Portaly as authoritative. Do not reconstruct it from guessed domains.
+- After creating or updating a plan, check the response `name` and `description` for garbled text (mojibake). If corrupted, fix shell encoding and use `PUT /api/creator-subscription/plans/{planId}` to correct it. See the Windows encoding note in Guardrails.
 
 ### 4. Create the checkout session
 
@@ -221,6 +222,7 @@ When answering with this skill, prefer this order:
 - Do not assume callback delivery means success without checking the `status` and verified signature.
 - Do not derive subscription state from redirect success pages alone. Redirects are UX only; callback or status query is the source of truth.
 - Treat `references/checkout-and-renewal.md` as non-API background material. Load it only if the task explicitly touches recurring billing, payout, invoice follow-up, or bridge-order behavior.
+- **Windows encoding:** On Windows, run `chcp 65001` (cmd) or `$OutputEncoding = [System.Text.Encoding]::UTF8` (PowerShell) before API calls containing non-ASCII text. If a plan's `name` or `description` comes back garbled, fix encoding and `PUT` the correct values.
 
 ## Deliverables
 
