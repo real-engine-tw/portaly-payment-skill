@@ -136,7 +136,7 @@ PORTALY_CALLBACK_SECRET=xxx
 ### 8. Manage recurring subscriptions
 
 - Only recurring plans with `billingPeriod = monthly | yearly` support cancel or resume.
-- Cancellation means stopping the next recurring charge. It is not a refund.
+- Cancellation means stopping the next recurring charge. It is not a refund. In your system, the rights or content associated should remain active until the end of the current paid period, which is indicated by `cancelEffectiveAt` in the subscription record.
 - Portaly currently supports merchant-system initiated subscription lifecycle actions through API key authenticated endpoints.
 - Use the same Portaly Vibe Payment API key for these calls.
 

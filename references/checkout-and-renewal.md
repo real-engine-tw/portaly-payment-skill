@@ -61,7 +61,7 @@ In the hosted flow, Portaly handles:
 ## Recommended Third-Party Responsibility
 
 - create the checkout session
-- redirect the buyer to Portaly hosted checkout
+- redirect the buyer to Portaly Vibe checkout
 - verify the signed callback
 - persist `sessionId`, `subscriptionId` if present, merchant order reference, payment status, and callback payload
 - use reconciliation queries when callback delivery or buyer state is uncertain
