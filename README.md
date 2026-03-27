@@ -22,6 +22,7 @@
 
 目前這個 Skill 支援：
 - Claude Code
+- Cursor
 - Codex
 - OpenClaw
 
@@ -39,6 +40,18 @@ git clone https://github.com/real-engine-tw/portaly-payment-skill.git ~/.codex/s
 ```bash
 git clone https://github.com/real-engine-tw/portaly-payment-skill.git ~/.openclaw/skills/portaly-payment-skill
 ```
+
+### Cursor
+
+在你的專案根目錄下執行以下指令，將 Skill 安裝為 Cursor 的 Project Rule：
+
+```bash
+git clone https://github.com/real-engine-tw/portaly-payment-skill.git .cursor/rules/portaly-payment-skill
+```
+
+安裝完成後，Cursor Agent 會自動載入 `.cursor/rules/portaly-payment-skill/` 中的 Skill 定義，並在相關的對話中觸發使用。
+
+> **注意：** 此指令會將 Skill 安裝到當前專案的 `.cursor/rules/` 目錄中。如果你想在多個專案中使用，需要在每個專案中分別執行此指令。
 
 ## Skill 觸發條件
 你可以使用以下的 Prompt 來觸發 Portaly Vibe 支付 Skill：
