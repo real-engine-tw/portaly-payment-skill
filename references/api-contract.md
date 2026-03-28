@@ -8,8 +8,11 @@
 - third-party checkout session creation
 - session query and reconciliation
 - recurring subscription query, cancel, and resume
+- subscription list query with pagination
+- order and payment record query with pagination
 - signed callback verification
 - fallback manual completion flows
+- rate limiting behavior and retry handling
 
 ## Bearer Auth
 
@@ -562,6 +565,154 @@ app.post("/api/portaly/callback", (req, res) => {
   return res.status(200).json({ ok: true });
 });
 ```
+
+## Subscription List
+
+Use this when the human user needs to list all subscriptions for a profile, with optional filtering and pagination.
+
+- Endpoint:
+  - `GET /api/creator-subscription/subscriptions`
+- Required headers:
+  - `Authorization: Bearer {portaly_vibe_payment_api_key}`
+- Query parameters:
+  - `profileId`: optional for API key auth (derived from key), required for Firebase auth
+  - `status`: optional, `active` | `past_due` | `canceled`
+  - `customerEmail`: optional, filter by subscriber email
+  - `limit`: optional, number of results per page (default 20, max 100)
+  - `startAfter`: optional, cursor from previous page's `pagination.nextCursor`
+- Response fields:
+  - `data[]`: array of subscription objects
+  - `data[].id`
+  - `data[].profileId`
+  - `data[].planId`
+  - `data[].planName`
+  - `data[].amount`
+  - `data[].currency`
+  - `data[].billingPeriod`
+  - `data[].status`
+  - `data[].mode`
+  - `data[].cancelAtPeriodEnd`
+  - `data[].nextBillingAt`
+  - `data[].customerName`
+  - `data[].customerEmail`
+  - `data[].createdAt`
+  - `pagination.hasMore`: boolean
+  - `pagination.nextCursor`: string or null
+  - `pagination.count`: number of items in current page
+- Notes:
+  - API key auth automatically filters subscriptions by the key's mode (live or test)
+  - Supports cursor-based pagination — pass `nextCursor` as `startAfter` for the next page
+
+Pagination example:
+
+```js
+// First page
+const page1 = await fetch(
+  "https://portaly.cc/api/creator-subscription/subscriptions?limit=20",
+  { headers: { authorization: `Bearer ${apiKey}` } }
+).then(r => r.json());
+
+// Next page (if hasMore)
+if (page1.pagination.hasMore) {
+  const page2 = await fetch(
+    `https://portaly.cc/api/creator-subscription/subscriptions?limit=20&startAfter=${page1.pagination.nextCursor}`,
+    { headers: { authorization: `Bearer ${apiKey}` } }
+  ).then(r => r.json());
+}
+```
+
+## Order Query
+
+Use this when the human user needs to query payment/order records for a profile.
+
+- Endpoint:
+  - `GET /api/creator-subscription/orders`
+- Required headers:
+  - `Authorization: Bearer {portaly_vibe_payment_api_key}`
+- Query parameters:
+  - `profileId`: optional for API key auth (derived from key), required for Firebase auth
+  - `mode`: optional, `live` (default) or `test` — only used with Firebase auth; API key auth derives mode from the key
+  - `status`: optional, filter by order status (e.g., `paid`)
+  - `limit`: optional, number of results per page (default 20, max 100)
+  - `startAfter`: optional, cursor from previous page's `pagination.nextCursor`
+- Response fields:
+  - `data[]`: array of order objects
+  - `data[].id`
+  - `data[].profileId`
+  - `data[].amount`
+  - `data[].netTotal`
+  - `data[].fee`
+  - `data[].feeAmount`
+  - `data[].taxFee`
+  - `data[].taxFeeAmount`
+  - `data[].currency`
+  - `data[].status`
+  - `data[].name`: customer name
+  - `data[].email`: customer email
+  - `data[].paymentMethod`
+  - `data[].merchantOrderNumber`
+  - `data[].creatorSubscriptionId`
+  - `data[].creatorSubscriptionPlanId`
+  - `data[].createdAt`
+  - `data[].paidAt`
+  - `pagination.hasMore`: boolean
+  - `pagination.nextCursor`: string or null
+  - `pagination.count`: number of items in current page
+- Notes:
+  - API key auth automatically routes to the correct order collection based on the key's mode (live → `orders`, test → `sandboxOrders`)
+  - Only returns orders with `projectId = 'creatorSubscription'`
+  - Supports cursor-based pagination
+
+## Rate Limiting
+
+All creator-subscription API endpoints are rate limited **except** checkout session creation (`POST /api/creator-subscription/checkout-sessions`).
+
+### Rate limit tiers
+
+| Group | Window | Max requests | Applies to |
+|---|---|---|---|
+| read | 1 minute | 120 | GET sessions/{id}, GET subscriptions, GET subscriptions/{id}, GET plans, GET config, GET orders |
+| write | 1 minute | 20 | POST cancel, POST resume, PUT plans/{id}, PUT config, POST plans |
+| api-keys | 1 minute | 10 | POST/GET/DELETE api-keys |
+
+### Rate limit scope
+
+- API key auth: rate limit is per API key
+- Firebase auth: rate limit is per user UID
+
+### Response headers
+
+All rate-limited endpoints return these headers on every response:
+
+```
+X-RateLimit-Limit: 120
+X-RateLimit-Remaining: 119
+X-RateLimit-Reset: 1711612860
+```
+
+- `X-RateLimit-Limit`: maximum requests allowed in the current window
+- `X-RateLimit-Remaining`: remaining requests in the current window
+- `X-RateLimit-Reset`: Unix timestamp (seconds) when the window resets
+
+### 429 response
+
+When the rate limit is exceeded:
+
+```
+HTTP/1.1 429 Too Many Requests
+Retry-After: 42
+X-RateLimit-Limit: 120
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1711612860
+```
+
+```json
+{
+  "error": "Rate limit exceeded. Try again in 42 seconds."
+}
+```
+
+Use the `Retry-After` header value to schedule retries.
 
 ## External Ownership Split
 
