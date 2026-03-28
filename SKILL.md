@@ -163,9 +163,14 @@ PORTALY_CALLBACK_SECRET=xxx
 
 Recurring management APIs:
 
+- `GET /api/creator-subscription/subscriptions` — list all subscriptions with pagination and filtering
 - `GET /api/creator-subscription/subscriptions/{subscriptionId}`
 - `POST /api/creator-subscription/subscriptions/{subscriptionId}/cancel`
 - `POST /api/creator-subscription/subscriptions/{subscriptionId}/resume`
+
+Order query API:
+
+- `GET /api/creator-subscription/orders` — list payment/order records with pagination
 
 Recurring management rules:
 
@@ -223,6 +228,7 @@ When answering with this skill, prefer this order:
 - Do not derive subscription state from redirect success pages alone. Redirects are UX only; callback or status query is the source of truth.
 - Treat `references/checkout-and-renewal.md` as non-API background material. Load it only if the task explicitly touches recurring billing, payout, invoice follow-up, or bridge-order behavior.
 - **Windows encoding:** On Windows, run `chcp 65001` (cmd) or `$OutputEncoding = [System.Text.Encoding]::UTF8` (PowerShell) before API calls containing non-ASCII text. If a plan's `name` or `description` comes back garbled, fix encoding and `PUT` the correct values.
+- **Rate limiting:** All creator-subscription API endpoints (except `POST /checkout-sessions`) are rate limited. Read endpoints allow 120 requests/min, write endpoints allow 20 requests/min. If a `429` response is received, use the `Retry-After` header to schedule retries. When paginating through large result sets, be mindful of the rate limit budget.
 
 ## Deliverables
 
