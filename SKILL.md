@@ -53,6 +53,7 @@ Payment site URLs to which buyers are redirected for checkout:
    2. redirect buyer to Portaly vibe checkout
    3. verify and consume the callback from Portaly after checkout completion
    4. if the integration needs subscription lifecycle management, also wire cancel and resume APIs for recurring plans
+   5. if the integration needs subscriber self-service (letting subscribers manage their own subscriptions), wire the portal session API
 3. Start with `references/api-contract.md`.
    Use it for endpoint lists, auth, request bodies, response bodies, and callback headers.
 4. Load `references/checkout-and-renewal.md` only when needed.
@@ -204,6 +205,17 @@ What to persist for recurring lifecycle:
 - `status`
 - `cancelAtPeriodEnd`
 - `cancelEffectiveAt`
+
+### 9. Enable subscriber self-service portal (optional)
+
+- Use this when the merchant wants subscribers to manage their own subscriptions directly.
+- The merchant backend creates a portal session via `POST /api/creator-subscription/portal-sessions` on `https://payment.portaly.cc`, then redirects the subscriber to the returned `portalUrl`.
+- This is a **server-to-server** call — the API key must never be exposed to the client.
+- The subscriber lands on Portaly's hosted portal page, already authenticated via the session token. No additional login is required.
+- In the portal, subscribers can view subscriptions, cancel, resume, and view payment history.
+- Portal sessions expire after 30 minutes.
+- The merchant must provide a `returnUrl` so the subscriber can navigate back after managing their subscriptions.
+- See `Portal Session (Subscriber Self-Service)` in `references/api-contract.md` for full endpoint details and code examples.
 
 ## Preferred Response Shape
 

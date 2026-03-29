@@ -75,6 +75,17 @@ In the hosted flow, Portaly handles:
 - persist `sessionId`, `subscriptionId` if present, merchant order reference, payment status, and callback payload
 - use reconciliation queries when callback delivery or buyer state is uncertain
 
+## Subscriber Self-Service Portal
+
+- Merchants can let subscribers manage their own subscriptions without building custom UI.
+- The merchant backend creates a **portal session** by calling `POST /api/creator-subscription/portal-sessions` on `https://payment.portaly.cc` with the API key.
+- Portaly returns a `portalUrl` containing a short-lived token (30-minute TTL).
+- The merchant redirects the subscriber (who is already authenticated on the merchant's site) to `portalUrl`.
+- The subscriber can view, cancel, and resume subscriptions, and view payment history.
+- No additional login is required — the portal session token serves as the credential.
+- After the subscriber finishes, they click "Back" to return to the merchant's `returnUrl`.
+- For full API details, see `Portal Session (Subscriber Self-Service)` in `references/api-contract.md`.
+
 ## Scope Note
 
 This document intentionally omits provider-specific payment steps and Portaly internal write details. For the external integration contract, use `references/api-contract.md`.
