@@ -717,6 +717,138 @@ X-RateLimit-Reset: 1711612860
 
 Use the `Retry-After` header value to schedule retries.
 
+## Portal Session (Subscriber Self-Service)
+
+Use this when the human user wants to let their subscribers manage their own subscriptions (view, cancel, resume) without leaving the merchant's UX flow.
+
+### How It Works
+
+1. The subscriber is already logged into the merchant's website.
+2. The subscriber clicks "Manage Subscription".
+3. The merchant backend creates a **portal session** via server-to-server API call.
+4. Portaly returns a `portalUrl` with a short-lived token.
+5. The merchant redirects the subscriber to `portalUrl`.
+6. The subscriber can view subscriptions, cancel, resume, and view payment history — no additional login required.
+7. The subscriber clicks "Back" and returns to the merchant's `returnUrl`.
+
+### Create Portal Session
+
+- Endpoint:
+  - `POST /api/creator-subscription/portal-sessions`
+- API host:
+  - `https://payment.portaly.cc`
+- Required headers:
+  - `Authorization: Bearer {portaly_vibe_payment_api_key}`
+  - `Content-Type: application/json`
+- Request fields:
+  - `customerEmail`: optional, the subscriber's email (required if `subscriptionId` is not provided)
+  - `subscriptionId`: optional, scope to a single subscription (required if `customerEmail` is not provided)
+  - `returnUrl`: required, URL to redirect the subscriber back to after they finish managing
+- At least one of `customerEmail` or `subscriptionId` must be provided.
+
+Request body (by email — shows all subscriptions for this email):
+
+```json
+{
+  "customerEmail": "subscriber@example.com",
+  "returnUrl": "https://merchant.example/account"
+}
+```
+
+Request body (by subscription — scoped to one subscription):
+
+```json
+{
+  "subscriptionId": "session_123",
+  "returnUrl": "https://merchant.example/account"
+}
+```
+
+- Response fields:
+  - `data.portalSessionId`: the portal session id
+  - `data.portalUrl`: URL to redirect the subscriber to
+  - `data.expiresAt`: session expiry timestamp (30 minutes)
+
+```json
+{
+  "data": {
+    "portalSessionId": "portal_abc123",
+    "portalUrl": "https://payment.portaly.cc/portal/portal_abc123?token=hex_token",
+    "expiresAt": "2026-03-29T12:30:00.000Z"
+  }
+}
+```
+
+- Integration notes:
+  - This is a **server-to-server** call — never expose the API key in client-side code
+  - The `portalUrl` contains a short-lived token; do not cache it beyond `expiresAt`
+  - The portal session inherits `mode` from the API key (live or test)
+  - After the session expires, the subscriber must request a new portal session from the merchant
+
+Node.js example:
+
+```js
+// Server-side: create portal session and redirect subscriber
+const response = await fetch(
+  "https://payment.portaly.cc/api/creator-subscription/portal-sessions",
+  {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${process.env.PORTALY_API_KEY}`,
+    },
+    body: JSON.stringify({
+      customerEmail: subscriber.email,
+      returnUrl: "https://merchant.example/account",
+    }),
+  }
+);
+
+const result = await response.json();
+// Redirect the subscriber to the portal
+res.redirect(result.data.portalUrl);
+```
+
+Express route example:
+
+```js
+app.get("/manage-subscription", async (req, res) => {
+  // req.user is the authenticated subscriber on the merchant's side
+  const response = await fetch(
+    "https://payment.portaly.cc/api/creator-subscription/portal-sessions",
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${process.env.PORTALY_API_KEY}`,
+      },
+      body: JSON.stringify({
+        customerEmail: req.user.email,
+        returnUrl: `${process.env.BASE_URL}/account`,
+      }),
+    }
+  );
+
+  const { data } = await response.json();
+  res.redirect(data.portalUrl);
+});
+```
+
+### What the Subscriber Can Do in the Portal
+
+- View all subscriptions associated with their email under this merchant
+- See plan name, amount, billing period, status, and next billing date
+- **Cancel** a recurring subscription (stops next renewal, current period remains active)
+- **Resume** a pending cancellation (before it becomes fully canceled)
+- View payment history per subscription
+
+### Portal Session Security
+
+- The portal token is valid for 30 minutes
+- The token is validated on every API call within the portal
+- Subscription actions (cancel/resume) verify that the subscription belongs to the portal session's email and profile
+- The merchant API key is only used server-to-server; it is never exposed to the subscriber's browser
+
 ## External Ownership Split
 
 Third party usually owns:
