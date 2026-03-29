@@ -867,3 +867,157 @@ Portaly owns:
 - subscription and payment persistence
 - invoice task creation
 - bridge order creation
+
+---
+
+## External Product Checkout API
+
+Use this section when integrating external checkout for digital products hosted on Portaly.
+
+### Product Read API
+
+Read-only access to a creator's digital products. Does not support creating or updating products.
+
+`GET /api/external/products`
+
+- Required headers:
+  - `Authorization: Bearer {portaly_vibe_payment_api_key}`
+- Response fields:
+  - `data`: array of product objects
+  - Each product: `id`, `name`, `title`, `description`, `price`, `sale`, `priceStatus`, `productMode`, `icon`, `category`, `isRepurchasable`, `enablePayPal`, `customLocale`, `image`, `images`
+
+`GET /api/external/products/{productId}`
+
+- Required headers:
+  - `Authorization: Bearer {portaly_vibe_payment_api_key}`
+- Response fields:
+  - `data`: single product object (same fields as list)
+- Error responses:
+  - 404: product not found or deleted
+
+### External Checkout Session
+
+Create a checkout session for one or more digital products with custom amounts.
+
+`POST /api/external/checkout-sessions`
+
+- Required headers:
+  - `Authorization: Bearer {portaly_vibe_payment_api_key}`
+  - `Content-Type: application/json`
+- Request fields:
+  - `lineItems`: required array of `{ productId, amount, productName? }`
+    - `productId`: required, must exist in the creator's products
+    - `amount`: required, positive number (can differ from product's original price)
+    - `productName`: optional, overrides product name in checkout display
+  - `successRedirectUrl`: optional, merchant success page
+  - `cancelRedirectUrl`: optional, merchant cancel page
+  - `callbackUrl`: optional, merchant callback endpoint (HTTPS required)
+  - `merchantOrderNumber`: optional, merchant-side order id
+  - `metadata`: optional, string-keyed extra context
+
+Single product request:
+
+```json
+{
+  "lineItems": [
+    { "productId": "prod_001", "amount": 150 }
+  ],
+  "successRedirectUrl": "https://merchant.example/success",
+  "callbackUrl": "https://merchant.example/api/portaly/callback"
+}
+```
+
+Multi-product request:
+
+```json
+{
+  "lineItems": [
+    { "productId": "prod_001", "amount": 100 },
+    { "productId": "prod_002", "amount": 200 }
+  ],
+  "successRedirectUrl": "https://merchant.example/success",
+  "callbackUrl": "https://merchant.example/api/portaly/callback",
+  "merchantOrderNumber": "order_001",
+  "metadata": { "cartId": "cart_abc" }
+}
+```
+
+- Response fields:
+  - `data.sessionId`: checkout session id
+  - `data.status`: `checkout_ready`
+  - `data.checkoutUrl`: URL the buyer should visit
+  - `data.checkoutToken`: server-side token
+  - `data.expiresAt`: session expiry (30 minutes)
+
+Integration notes:
+  - redirect the buyer to `checkoutUrl`
+  - session inherits `mode` from the API key (`live` or `test`)
+  - total amount = sum of all `lineItems[].amount`
+  - each lineItem's `amount` can differ from the product's original price
+  - `callbackSecret` is derived from the authorized API key
+
+`GET /api/external/checkout-sessions/{sessionId}`
+
+- Required headers:
+  - `Authorization: Bearer {portaly_vibe_payment_api_key}`
+- Response fields:
+  - `data.sessionId`
+  - `data.status`: `initiated | checkout_ready | processing | completed | failed | expired`
+  - `data.lineItems`
+  - `data.totalAmount`
+  - `data.currency`
+  - `data.merchantOrderNumber`
+  - `data.customerEmail`
+  - `data.metadata`
+  - `data.orderIds`: array of Portaly order IDs (populated after completion)
+  - `data.expiresAt`
+  - `data.completedAt`
+
+### External Checkout Callback
+
+Dispatched when the external checkout session is completed (payment successful).
+
+- Headers:
+  - `x-portaly-event`: `external_checkout.completed`
+  - `x-portaly-timestamp`: ISO datetime string
+  - `x-portaly-signature`: HMAC-SHA256 signature
+- Payload fields:
+  - `event`: `external_checkout.completed`
+  - `sessionId`
+  - `profileId`
+  - `mode`: `live` or `test`
+  - `status`: `completed`
+  - `merchantOrderNumber`
+  - `totalAmount`
+  - `currency`
+  - `lineItems`: array of `{ productId, amount, productName }`
+  - `customerEmail`
+  - `customerName`
+  - `orderIds`: array of Portaly order IDs
+  - `metadata`
+  - `completedAt`
+
+Verification rule:
+- Same as subscription callbacks: `{timestamp}.{stable_json(payload)}` with HMAC-SHA256 using `callbackSecret`
+- Use `sessionId` as idempotency key
+
+### External Checkout Order Structure
+
+- One Portaly order is created per checkout session (not per product)
+- The order contains `lineItems` for multi-product detail
+- `productId` field = first lineItem's productId (backward compatible)
+- `productIds` array field = all productIds (for `array-contains` queries)
+- Invoice is issued as a single invoice with multiple line items
+- Refund refunds the entire order (all products) and voids the invoice
+- Order statistics are updated per productId proportionally
+
+### Direct Checkout (Non-API)
+
+For simpler integrations that don't need custom pricing or multi-product:
+
+| Scenario | URL |
+|---|---|
+| Standalone page | `https://portaly.cc/{slug}/product/{productId}` |
+| Embedded (iframe) | `https://portaly.cc/embed/{slug}/product/{productId}` |
+
+Use the Product Read API to discover `productId` values, then redirect or embed.

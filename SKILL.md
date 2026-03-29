@@ -242,6 +242,49 @@ When answering with this skill, prefer this order:
 - **Windows encoding:** On Windows, run `chcp 65001` (cmd) or `$OutputEncoding = [System.Text.Encoding]::UTF8` (PowerShell) before API calls containing non-ASCII text. If a plan's `name` or `description` comes back garbled, fix encoding and `PUT` the correct values.
 - **Rate limiting:** All creator-subscription API endpoints (except `POST /checkout-sessions`) are rate limited. Read endpoints allow 120 requests/min, write endpoints allow 20 requests/min. If a `429` response is received, use the `Retry-After` header to schedule retries. When paginating through large result sets, be mindful of the rate limit budget.
 
+### External product checkout (digital goods)
+
+Use this workflow when the human user wants to sell existing Portaly digital products via their own website or app, with optional custom pricing or multi-product cart.
+
+**Key differences from subscription checkout:**
+- Uses `/api/external/` endpoints instead of `/api/creator-subscription/`
+- Works with existing Portaly digital products (read-only — products are created in Portaly admin)
+- Supports custom per-item pricing (amount can differ from original product price)
+- Supports multi-product checkout in a single session
+- Creates standard Portaly orders (integrated with existing order statistics, invoices, refunds)
+
+**Workflow:**
+
+1. **Read products**: `GET /api/external/products` to list available products
+2. **Create checkout session**: `POST /api/external/checkout-sessions` with `lineItems` array
+3. **Redirect buyer** to `checkoutUrl` returned by session creation
+4. **Portaly handles payment** on the hosted checkout page
+5. **Receive callback** at `callbackUrl` when payment completes (same HMAC-SHA256 verification as subscription callbacks)
+6. **Query session** via `GET /api/external/checkout-sessions/{sessionId}` for reconciliation
+
+**Multi-product example:**
+```json
+{
+  "lineItems": [
+    { "productId": "prod_001", "amount": 100 },
+    { "productId": "prod_002", "amount": 200 }
+  ],
+  "callbackUrl": "https://merchant.example/api/portaly/callback",
+  "successRedirectUrl": "https://merchant.example/success"
+}
+```
+
+**Order structure:**
+- One order per session (not per product)
+- Order contains `lineItems` for multi-product detail
+- Invoice includes all line items
+- Refund covers entire order and voids invoice
+- Statistics updated per productId proportionally
+
+**Direct checkout (non-API):**
+- Standalone: `https://portaly.cc/{slug}/product/{productId}`
+- Embedded: `https://portaly.cc/embed/{slug}/product/{productId}`
+
 ## Deliverables
 
 When using this skill, aim to return one or more of:
