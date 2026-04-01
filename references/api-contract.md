@@ -66,18 +66,21 @@ Use this when the human user needs to set or update merchant branding for Portal
 
 `PUT /api/creator-subscription/config`
 
-- Request fields:
-  - `merchantLogo`: optional `images/{fileId}` value
-- Request body:
+- Update endpoint for merchant profile config, currently only supports `merchantName`. Image should upload via `/api/creator-subscription/config/images`.
 
+- Request fields:
+  - `merchantName`: optional string value
+
+- Request body:
 ```json
 {
-  "merchantLogo": "images/file_123"
+  "merchantName": "Example Merchant",
 }
 ```
 
 - Response fields:
   - `data.profileId`
+  - `data.merchantName`
   - `data.merchantLogo`
   - `data.updatedAt`
 
