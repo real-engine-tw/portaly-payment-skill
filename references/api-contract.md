@@ -55,12 +55,29 @@ Mode behavior:
 - A single `profileId` can have both a live and a test key active simultaneously
 - Mode is fixed at creation time and cannot be changed
 
+## Resolve Profile from API Key
+
+Use this when the integration needs to know `profileId` or merchant config without already having the `profileId`.
+
+- Endpoint:
+  - `GET /api/creator-subscription/me`
+- Auth:
+  - `Authorization: Bearer {portaly_vibe_payment_api_key}` (API key only — Firebase auth not supported)
+- Response fields:
+  - `data.profileId`
+  - `data.mode` — `"live"` or `"test"`
+  - `data.merchantName`
+  - `data.merchantLogo`
+- Notes:
+  - Call this once at startup to resolve `profileId` from the key. Cache the result.
+  - Do not require users to supply `PORTALY_PROFILE_ID` separately when using an API key.
+
 ## Merchant Config
 
 Use this when the human user needs to set or update merchant branding for Portaly Vibe Payment.
 
 - Read endpoint:
-  - `GET /api/creator-subscription/config?profileId={profileId}`
+  - `GET /api/creator-subscription/config` — `profileId` query param optional when using API key auth (derived from key); required when using Firebase auth
 - Setup endpoints:
   - `PUT /api/creator-subscription/config`
   - `POST /api/creator-subscription/config/images`
@@ -113,7 +130,7 @@ Use this when the human user wants the Agent to create or maintain the product b
 
 - **Plans belong to the `profileId` and are shared across live and test modes.** Always query existing plans before creating a new one to avoid duplicates.
 - Read endpoints:
-  - `GET /api/creator-subscription/plans?profileId={profileId}`
+  - `GET /api/creator-subscription/plans` — `profileId` query param optional when using API key auth (derived from key); required when using Firebase auth
   - `GET /api/creator-subscription/plans/{planId}`
 - Setup endpoints:
   - `POST /api/creator-subscription/plans`

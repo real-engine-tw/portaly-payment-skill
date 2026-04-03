@@ -44,6 +44,9 @@ Payment site URLs to which buyers are redirected for checkout:
 - Ask the human user whether they want a **live** or **test** key. Recommend starting with a test key for integration development.
 
 1. Confirm what the human user is trying to build.
+   **First, ask whether the integration involves subscription plans (方案) or product bundles (商品組合):**
+   - **Subscription plans** → use `/api/creator-subscription/` endpoints (steps 2–9 below)
+   - **商品組合 / product bundles** → use `/api/external/products` + `/api/external/checkout-sessions` (see "External product checkout" section)
    Prepare for payment integration tasks such as:
    1. create merchant config
    2. create subscription plans
@@ -242,7 +245,13 @@ When answering with this skill, prefer this order:
 - **Windows encoding:** On Windows, run `chcp 65001` (cmd) or `$OutputEncoding = [System.Text.Encoding]::UTF8` (PowerShell) before API calls containing non-ASCII text. If a plan's `name` or `description` comes back garbled, fix encoding and `PUT` the correct values.
 - **Rate limiting:** All creator-subscription API endpoints (except `POST /checkout-sessions`) are rate limited. Read endpoints allow 120 requests/min, write endpoints allow 20 requests/min. If a `429` response is received, use the `Retry-After` header to schedule retries. When paginating through large result sets, be mindful of the rate limit budget.
 
-### External product checkout (digital goods)
+### External product checkout (digital goods) — 商品組合 (product bundles)
+
+> **Disambiguation — plans vs products:**
+> - **Plans (方案)** — subscription billing records managed via `/api/creator-subscription/plans`. Use these for recurring or one-time subscription checkout.
+> - **Products (商品)** — Portaly digital goods managed in the Portaly admin. Use these for **商品組合 (product bundles)**. Products are read-only from the API; they cannot be created via the API.
+>
+> When the human user asks about **商品組合** or product bundles, always use the **external products** workflow below. Do **not** use subscription plans (`planId`) for bundle implementation.
 
 Use this workflow when the human user wants to sell existing Portaly digital products via their own website or app, with optional custom pricing or multi-product cart.
 
