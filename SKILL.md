@@ -151,8 +151,7 @@ PORTALY_CALLBACK_SECRET=xxx
 - Verify `x-portaly-signature` with the API key's `callbackSecret`.
 - Use the exact timestamp from `x-portaly-timestamp`.
 - **Reject callbacks where `x-portaly-timestamp` is older than 5 minutes** to prevent replay attacks. Note: `x-portaly-timestamp` is an ISO datetime string, not Unix seconds.
-- Serialize the callback payload with stable key ordering before HMAC.
-- Reference implementations live in `scripts/sign_callback.py` and `scripts/sign_callback.mjs`.
+- **CRITICAL: Before writing any callback verification code, read `scripts/sign_callback.mjs` (or `scripts/sign_callback.py`) and copy the signing/verification functions verbatim.** Do not write your own serialization logic.
 - After verification, persist `sessionId`, `subscriptionId` if present, `merchantOrderNumber`, `paymentReference`, `paymentMethod`, `status`, and the raw callback body for auditing.
 - If the callback payload does not include `subscriptionId`, persist `sessionId` as the recurring subscription identifier because the current implementation uses `sessionId` as `subscriptionId`.
 - **Use `sessionId` as an idempotency key** — if a callback with the same `sessionId` has already been processed, skip duplicate handling to avoid double fulfillment.
