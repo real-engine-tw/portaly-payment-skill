@@ -44,18 +44,23 @@ Payment site URLs to which buyers are redirected for checkout:
 - Ask the human user whether they want a **live** or **test** key. Recommend starting with a test key for integration development.
 
 1. Confirm what the human user is trying to build.
-   **First, ask whether the integration involves subscription plans (方案) or product bundles (商品組合):**
-   - **Subscription plans** → use `/api/creator-subscription/` endpoints (steps 2–9 below)
-   - **商品組合 / product bundles** → use `/api/external/products` + `/api/external/checkout-sessions` (see "External product checkout" section)
+   **First, ask the human user which type of checkout they need:**
+   - **A. Subscription plans** — recurring billing (monthly or yearly). Then ask: **monthly or yearly?**
+     → use `/api/creator-subscription/` endpoints (steps 2–9 below)
+   - **B. One-time payment plans** — single payment, no auto-renewal. Then ask: **fixed pricing or dynamic pricing?**
+     → use `/api/creator-subscription/` endpoints with `billingPeriod: "one-time"` (steps 2–9 below). For dynamic pricing, also set `pricingType: "dynamic"` and pass `amount` per checkout session.
+   - **C. Product bundles** — sell existing Portaly digital products, supports multi-product cart and custom per-item pricing.
+     → use `/api/external/products` + `/api/external/checkout-sessions` (see "External product checkout" section)
+
    Prepare for payment integration tasks such as:
    1. create merchant config
-   2. create subscription plans
+   2. create plans (for A or B) or read existing products (for C)
    3. upload merchant or plan images (Agent should ask human user to provide image assets if needed)
 2. After setup, integrate the checkout session creation and callback handling into current system:
    1. create checkout session before buyer initiates payment
    2. redirect buyer to Portaly vibe checkout
    3. verify and consume the callback from Portaly after checkout completion
-   4. if the integration needs subscription lifecycle management, also wire cancel and resume APIs for recurring plans
+   4. if the integration is a subscription plan (A), also wire cancel and resume APIs for recurring billing
    5. if the integration needs subscriber self-service (letting subscribers manage their own subscriptions), wire the portal session API
 3. Start with `references/api-contract.md`.
    Use it for endpoint lists, auth, request bodies, response bodies, and callback headers.
@@ -107,27 +112,31 @@ PORTALY_CALLBACK_SECRET=xxx
 
 - Agent should perform these setup actions directly by API call with the Portaly Vibe Payment API key.
 - Use the Config APIs when the human user needs to set merchant branding before any product goes live.
-- AI Agent should ask the human user to provide a `merchantLogo` image asset, use the config image upload API to upload image to Portaly. The merchant logo is optional — if the user does not have one ready, skip this step and proceed with plan creation.
+- AI Agent should ask the human user to provide a `merchantLogo` image asset, use the config image upload API to upload image to Portaly. The merchant logo is optional — if the user does not have one ready, skip this step and proceed to the next step.
 - Use `PUT /api/creator-subscription/config` and `POST /api/creator-subscription/config/images` to set up merchant branding with the Portaly Vibe Payment API key.
 
-### 3. Create a valid subscription plan
+### 3. Create a plan (Type A or B only)
 
 - Agent should perform plan creation, plan updates, and plan image uploads directly by API call with the Portaly Vibe Payment API key.
 - **Before creating a new plan, always query existing plans** with `GET /api/creator-subscription/plans?profileId={profileId}` using the current API key. Plans are shared across live and test modes — if a suitable plan already exists, reuse it instead of creating a duplicate.
 - Require at least one active plan in Portaly before creating a checkout session.
 - Use the Plan APIs to create or update the product basics that the human user wants to list on Portaly.
-- Confirm the plan name, description, amount, currency, billing period (`monthly`, `yearly`, or `one-time`), pricing type (`fixed` or `dynamic`), and status match the intended product.
-- For dynamic pricing plans: set `pricingType` to `dynamic` and `billingPeriod` to `one-time`. The amount is not set on the plan; instead, the caller passes `amount` when creating each checkout session.
+- Use the checkout type chosen in step 1 to set the correct `billingPeriod` and `pricingType`:
+  - **Type A (Subscription plans):** set `billingPeriod` to the user's choice of `monthly` or `yearly`. `pricingType` defaults to `fixed`.
+  - **Type B (One-time payment plans):** set `billingPeriod` to `one-time`. Ask the user whether to use **fixed** or **dynamic** pricing. For dynamic pricing, set `pricingType` to `dynamic` — the amount is not set on the plan; instead, the caller passes `amount` when creating each checkout session.
+- Confirm the plan name, description, amount (for fixed pricing), currency, and status match the intended product.
 - If the third party has its own product catalog, persist the Portaly `planId` together with the merchant's internal product or entitlement identifier.
 - AI Agent should ask the human user to provide a plan image, use the plan image upload API to upload the image to Portaly.
 - Treat the `checkoutUrl` returned by Portaly as authoritative. Do not reconstruct it from guessed domains.
 - After creating or updating a plan, check the response `name` and `description` for garbled text (mojibake). If corrupted, fix shell encoding and use `PUT /api/creator-subscription/plans/{planId}` to correct it. See the Windows encoding note in Guardrails.
 
-### 4. Create the checkout session
+### 4. Create the checkout session (Type A or B only)
 
+- **If the user chose Type C (Product bundles), skip steps 3–9 and follow the "External product checkout" section below.**
 - Create a checkout session before the buyer initiates payment.
 - Call `POST /api/creator-subscription/checkout-sessions` with `Authorization: Bearer {api_key}`.
 - Send `planId` and optional `successRedirectUrl`, `cancelRedirectUrl`, `callbackUrl`, `merchantOrderNumber`, and string-keyed `metadata`.
+- For dynamic pricing plans (Type B with `pricingType: "dynamic"`), `amount` is **required** in the request body. Omitting it returns a 400 error.
 - Persist `sessionId`, `checkoutToken`, `checkoutUrl`, and `expiresAt` on the third-party side.
 - Redirect the buyer to `checkoutUrl`.
 
@@ -244,13 +253,13 @@ When answering with this skill, prefer this order:
 - **Windows encoding:** On Windows, run `chcp 65001` (cmd) or `$OutputEncoding = [System.Text.Encoding]::UTF8` (PowerShell) before API calls containing non-ASCII text. If a plan's `name` or `description` comes back garbled, fix encoding and `PUT` the correct values.
 - **Rate limiting:** All creator-subscription API endpoints (except `POST /checkout-sessions`) are rate limited. Read endpoints allow 120 requests/min, write endpoints allow 20 requests/min. If a `429` response is received, use the `Retry-After` header to schedule retries. When paginating through large result sets, be mindful of the rate limit budget.
 
-### External product checkout (digital goods) — 商品組合 (product bundles)
+## External Product Checkout (Type C)
 
 > **Disambiguation — plans vs products:**
-> - **Plans (方案)** — subscription billing records managed via `/api/creator-subscription/plans`. Use these for recurring or one-time subscription checkout.
-> - **Products (商品)** — Portaly digital goods managed in the Portaly admin. Use these for **商品組合 (product bundles)**. Products are read-only from the API; they cannot be created via the API.
+> - **Plans** (subscription or one-time) are managed via `/api/creator-subscription/plans`. Use steps 2–9 above for plan-based checkout.
+> - **Products** are Portaly digital goods managed in the Portaly admin. They are read-only from the API and cannot be created via the API.
 >
-> When the human user asks about **商品組合** or product bundles, always use the **external products** workflow below. Do **not** use subscription plans (`planId`) for bundle implementation.
+> When the human user asks about product bundles, always use the **external products** workflow below. Do **not** use subscription plans (`planId`) for product bundle checkout.
 
 Use this workflow when the human user wants to sell existing Portaly digital products via their own website or app, with optional custom pricing or multi-product cart.
 
