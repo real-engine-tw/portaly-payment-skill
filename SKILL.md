@@ -280,7 +280,32 @@ Use this workflow when the human user wants to sell existing Portaly digital pro
 5. **Receive callback** at `callbackUrl` when payment completes (same HMAC-SHA256 verification as subscription callbacks)
 6. **Query session** via `GET /api/external/checkout-sessions/{sessionId}` for reconciliation
 
-**Multi-product example:**
+**Bundle pricing guidance (agent behavior):**
+When the human user is creating a product bundle, proactively suggest that they only need to decide the **total bundle price**. The code should automatically distribute the total price across line items **proportionally by each product's original price**. This simplifies the user's decision to a single number and avoids the cognitive overhead of pricing each item individually.
+
+- Distribution formula: `itemAmount = Math.round(item.originalPrice / sumOfAllOriginalPrices * totalBundlePrice)`, adjusting the last item to absorb any rounding remainder so the sum equals the total exactly.
+- The agent should read product original prices via `GET /api/external/products` to perform the calculation.
+- If the user insists on custom per-item pricing, respect their preference.
+- When explaining the approach, frame it as: "You only need to set the bundle's total price — the code will distribute it proportionally based on each product's original price."
+
+**Multi-product example (proportional distribution):**
+
+Products: A (original 400 TWD), B (original 600 TWD). User sets bundle price = 800 TWD.
+- A: `400 / (400+600) × 800 = 320`
+- B: `600 / (400+600) × 800 = 480`
+
+```json
+{
+  "lineItems": [
+    { "productId": "prod_A", "amount": 320 },
+    { "productId": "prod_B", "amount": 480 }
+  ],
+  "callbackUrl": "https://merchant.example/api/portaly/callback",
+  "successRedirectUrl": "https://merchant.example/success"
+}
+```
+
+**Multi-product example (custom per-item pricing):**
 ```json
 {
   "lineItems": [
