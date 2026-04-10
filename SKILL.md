@@ -1,7 +1,7 @@
 ---
 name: portaly-vibe-payment-integration
 version: 0.7.0
-description: Help users integrate Portaly Vibe hosted payment checkout, including merchant setup, subscription plans, checkout sessions, and callback verification. Trigger when the user mentions Portaly Vibe payment, creator subscription, or wants to add subscription-based checkout to their application.
+description: Help users integrate Portaly Vibe hosted payment checkout, including merchant setup, subscription plans, one-time payments, external product bundles, checkout sessions, and callback verification. Trigger when the user mentions Portaly Vibe payment, creator subscription, product bundle, external product checkout, or wants to add payment checkout to their application.
 ---
 
 # Portaly Vibe Payment Integration
@@ -133,7 +133,7 @@ PORTALY_CALLBACK_SECRET=xxx
 
 ### 4. Create the checkout session (Type A or B only)
 
-- **If the user chose Type C (Product bundles), skip steps 3–9 and follow the "External product checkout" section below.**
+- **If the user chose Type C (Product bundles), skip steps 3–4 and 8–9, and follow the "External product checkout" section below.** Steps 5–7 (hosted checkout, consume result, verify and persist) apply to all checkout types, but note the callback payload differences documented in each section.
 - Create a checkout session before the buyer initiates payment.
 - Call `POST /api/creator-subscription/checkout-sessions` with `Authorization: Bearer {api_key}`.
 - Send `planId` and optional `successRedirectUrl`, `cancelRedirectUrl`, `callbackUrl`, `merchantOrderNumber`, and string-keyed `metadata`.
@@ -150,9 +150,14 @@ PORTALY_CALLBACK_SECRET=xxx
 
 - The primary external confirmation is the signed callback to `callbackUrl`.
 - **Callback is only dispatched when checkout status is `completed`.** Non-completed outcomes (failed, canceled, expired) do not trigger a callback.
-- For non-completed outcomes, poll `GET /api/creator-subscription/checkout-sessions/{sessionId}` as a fallback.
-- Use manual `POST /api/creator-subscription/checkout-sessions/{sessionId}/complete` only as an exception flow when the user is building a non-hosted or recovery flow.
-- **Current implementation contract:** `subscriptionId === checkoutSessionId === sessionId`.
+- **The callback payload structure differs by checkout type.** Use the `event` field to distinguish:
+  - `creator_subscription.checkout.completed` — subscription/one-time plan checkout (Type A/B). Payload includes `planId`, `subscriptionId`, `amount`.
+  - `external_checkout.completed` — external product checkout (Type C). Payload includes `lineItems`, `totalAmount`, `orderIds`. **Does NOT include `planId` or `subscriptionId`.**
+- For non-completed outcomes:
+  - Type A/B: poll `GET /api/creator-subscription/checkout-sessions/{sessionId}`
+  - Type C: poll `GET /api/external/checkout-sessions/{sessionId}`
+- Use manual `POST /api/creator-subscription/checkout-sessions/{sessionId}/complete` only as an exception flow when the user is building a non-hosted or recovery flow (Type A/B only).
+- **Current implementation contract (Type A/B only):** `subscriptionId === checkoutSessionId === sessionId`.
 - When a recurring checkout succeeds, human user's system may use the callback's `sessionId` directly as the `subscriptionId` for later cancel or resume API calls.
 - Make it explicit to the human user that this is the current Portaly implementation contract and should be persisted on their side after checkout completion.
 
@@ -162,10 +167,13 @@ PORTALY_CALLBACK_SECRET=xxx
 - Use the exact timestamp from `x-portaly-timestamp`.
 - **Reject callbacks where `x-portaly-timestamp` is older than 5 minutes** to prevent replay attacks. Note: `x-portaly-timestamp` is an ISO datetime string, not Unix seconds.
 - **CRITICAL: Before writing any callback verification code, read `scripts/sign_callback.mjs` (or `scripts/sign_callback.py`) and copy the signing/verification functions verbatim.** Do not write your own serialization logic.
-- After verification, persist `sessionId`, `subscriptionId` if present, `merchantOrderNumber`, `paymentReference`, `paymentMethod`, `status`, and the raw callback body for auditing.
-- If the callback payload does not include `subscriptionId`, persist `sessionId` as the recurring subscription identifier because the current implementation uses `sessionId` as `subscriptionId`.
+- After verification, persist based on checkout type:
+  - **All types:** `sessionId`, `status`, `merchantOrderNumber`, `metadata`, `mode`, and the raw callback body for auditing.
+  - **Type A/B (subscription/one-time):** additionally persist `subscriptionId`, `planId`, `paymentReference`, `paymentMethod`. If `subscriptionId` is absent, persist `sessionId` as the subscription identifier.
+  - **Type C (external product):** additionally persist `lineItems`, `totalAmount`, `orderIds`. Do **not** expect `planId` or `subscriptionId` — these fields will be absent.
 - **Use `sessionId` as an idempotency key** — if a callback with the same `sessionId` has already been processed, skip duplicate handling to avoid double fulfillment.
 - **`callbackUrl` must use HTTPS.** Serving over plain HTTP exposes the `callbackSecret` signature and payload in transit.
+- **When writing a single callback handler for both types**, use `payload.event` or check for the presence of `planId` to branch logic. Always use `?? null` or equivalent for optional fields to avoid Firestore/database errors with `undefined` values.
 
 ### 8. Manage recurring subscriptions
 
@@ -277,7 +285,11 @@ Use this workflow when the human user wants to sell existing Portaly digital pro
 2. **Create checkout session**: `POST /api/external/checkout-sessions` with `lineItems` array
 3. **Redirect buyer** to `checkoutUrl` returned by session creation
 4. **Portaly handles payment** on the hosted checkout page
-5. **Receive callback** at `callbackUrl` when payment completes (same HMAC-SHA256 verification as subscription callbacks)
+5. **Receive and verify callback** at `callbackUrl` when payment completes — HMAC-SHA256 verification is the same as subscription callbacks (see Step 7), but the **payload structure is different**:
+   - `event` is `external_checkout.completed` (not `creator_subscription.checkout.completed`)
+   - Includes `lineItems`, `totalAmount`, `orderIds`, `metadata`
+   - Does **NOT** include `planId` or `subscriptionId`
+   - See `references/api-contract.md` → "External Checkout Callback" for full field list
 6. **Query session** via `GET /api/external/checkout-sessions/{sessionId}` for reconciliation
 
 **Bundle pricing guidance (agent behavior):**
